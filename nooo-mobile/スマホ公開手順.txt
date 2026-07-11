@@ -1,0 +1,19 @@
+Nooo スマホ版 公開手順
+
+この nooo-mobile フォルダの中身を、フォルダ構成を変えずにWebサーバーへアップロードしてください。
+Google DriveやGmailのプレビュー画面からは直接起動できません。
+
+GitHub Pagesの場合
+1. GitHubで新しいPublicリポジトリを作成します。
+2. nooo-mobile フォルダの「中身」をすべてアップロードします。
+   index.html がリポジトリの一番上に来るようにしてください。
+3. Settings → Pagesを開きます。
+4. Sourceを Deploy from a branch、Branchを main / (root) にしてSaveします。
+5. 表示された https://ユーザー名.github.io/リポジトリ名/ をスマホで開きます。
+
+ホーム画面へ追加
+・iPhone/iPad: Safariの共有ボタン → ホーム画面に追加
+・Android: Chromeのメニュー → ホーム画面に追加、またはアプリをインストール
+
+一度オンラインで最後まで読み込めば、対応ブラウザではゲーム画像が保存され、オフライン起動も可能です。
+セーブデータは端末とブラウザごとに保存されます。ブラウザデータを消すとセーブも消えます。
