@@ -345,7 +345,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.36</div>
+  <div id="buildVer">ver.0.37</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -1542,15 +1542,24 @@ function update(dt){
   if(S.hp<S.maxhp) S.hp=Math.min(S.maxhp,S.hp+0.012*dt);
   updateHUDthrottle(dt);
 }
-let meleeCd=0, spawnTimer=10, hudT=0, rivalTimer=1800, areaBossTimer=360, seraphyPrev=false;
+let meleeCd=0, spawnTimer=10, hudT=0, rivalTimer=1800, areaBossTimer=360, seraphyPrev=false, deathLockUntil=0;
 function updateHUDthrottle(dt){ hudT-=dt; if(hudT<=0){ document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%'; document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp; hudT=6; } }
 
 function playerDie(){
+  const now=Date.now();
+  // Boss melee, shockwaves, and summoned monsters can land on the same frame.
+  // Resolve death once rather than letting several dungeon-exit paths race.
+  if(now<deathLockUntil)return;
+  deathLockUntil=now+850;
+  const wasDungeon=S.inDungeon||!!D;
   S.hp=Math.floor(S.maxhp*0.35);
   const lost=Math.floor(S.zen*0.15); S.zen-=lost;
   CODEX.deaths=(CODEX.deaths||0)+1;
   flash('YOU DIED','#e23b3b','💰'+lost+' を失い復活');
-  monsters=[]; if(S.inDungeon) exitDungeon(); checkAch(); updateHUD();
+  // Clear boss and projectile references before returning to the field.
+  monsters=[]; drops=[]; slashes=[]; enemyFx=[]; atkAnim=null; atkHeld=false; autoAtkCd=0; meleeCd=0; heroMotion.hit=0;
+  if(wasDungeon)exitDungeon();
+  checkAch(); saveGame(); updateHUD();
 }
 
 // ---------- sprite helpers ----------
