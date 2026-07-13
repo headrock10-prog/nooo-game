@@ -345,7 +345,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.37</div>
+  <div id="buildVer">ver.0.38</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -690,9 +690,9 @@ function spawnMonster(opt){
   const reach=isBoss?92:({slime:30,bat:42,wolf:34,skeleton:112,imp:138,fish:72,golem:48}[kind]||34);
   monsters.push({
     x:(opt.cx??S.px)+Math.cos(ang)*r, y:(opt.cy??S.py)+Math.sin(ang)*r,
-    hp:hp, maxhp:hp, atk:(isBoss?area.atk*2:z.matk)*(isBoss?1:fieldAtkMul)*(opt.atkMul||1), exp:z.exp*(isBoss?20:1)*(1+fieldOver*.08), zen:z.zen*(isBoss?18:1),
+    hp:hp, maxhp:hp, atk:(isBoss?area.atk*2:z.matk)*(isBoss?1:fieldAtkMul)*(opt.atkMul||1), exp:z.exp*(isBoss?20:1)*(1+fieldOver*.08)*(opt.expMul||1), zen:z.zen*(isBoss?18:1)*(opt.zenMul||1),
     r:isBoss?46:16, reach, boss:isBoss, areaBoss:isBoss, hitCd:0, actCd:28+Math.random()*70, dash:0, tele:0, orbit:Math.random()*6.28, col:isBoss?area.col:z.mcol, acc:isBoss?area.acc:null, shape:isBoss?area.shape:null, name:isBoss?area.name:null, bossId:isBoss?area.id:null, wob:Math.random()*6.28,
-    kind, minion:!!opt.minion, motion:Math.random()*6.28, attackAnim:0
+    kind, minion:!!opt.minion, corridor:!!opt.corridor, motion:Math.random()*6.28, attackAnim:0
   });
   if(isBoss){ flash('AREA BOSS',area.acc,area.name+' が現れた！'); if(window.AU)AU.bossRoar(); }
   if(window.AU && Math.random()<0.35) AU.cry(monsters[monsters.length-1].kind,false);
@@ -813,6 +813,19 @@ function refreshDungeon(){
     +'<div style="text-align:center"><button class="gbtn" id="chaosCastleBtn" style="padding:9px 26px;background:linear-gradient(180deg,#4b276c,#241134);border-color:#a66be0">🌀 入城する</button></div>';
   el.appendChild(cc);
   cc.querySelector('#chaosCastleBtn').onclick=()=>enterChaosCastle();
+  const ic=document.createElement('div'); ic.className='card';
+  if(S.lv>=30){
+    ic.innerHTML='<div class="row"><span class="v" style="color:#75e8ff;font-size:14px">✦ 無限回廊</span></div>'
+      +'<div class="small" style="margin:2px 0 6px;line-height:1.6">時間制限なし。高Lvの敵が大量出現。<b style="color:#ffd24a">祝福・霊魂・混沌・護符</b>が多く落ちる。</div>'
+      +'<div class="row"><span class="k">敵Lv.</span><input id="corridorLv" type="number" min="30" max="999" value="'+Math.max(30,S.lv)+'" style="width:86px;padding:5px 7px"></div>'
+      +'<div class="row"><span class="k">経験値</span><select id="corridorExp" style="padding:5px 7px"><option value="1">通常</option><option value="2" selected>2倍</option></select></div>'
+      +'<div style="text-align:center"><button class="gbtn green" id="corridorBtn" style="padding:9px 26px">✦ 回廊へ入る</button></div>';
+    el.appendChild(ic);
+    ic.querySelector('#corridorBtn').onclick=()=>enterCorridor(Math.max(30,Math.min(999,Math.floor(+ic.querySelector('#corridorLv').value||30))),+ic.querySelector('#corridorExp').value||1);
+  } else {
+    ic.innerHTML='<div class="row"><span class="v" style="color:#4e7b88;font-size:14px">✦ 無限回廊</span><span class="small">Lv.30で開放</span></div>';
+    el.appendChild(ic);
+  }
   BOSSES.forEach((cfg,i)=>{ const rar0=SETS[cfg.rewardRar[0]], rar1=SETS[cfg.rewardRar[1]];
     const c=document.createElement('div'); c.className='card';
     c.innerHTML='<div class="row"><span class="v" style="color:'+cfg.acc+';font-size:14px">☠ '+cfg.name+'</span></div>'
@@ -1098,6 +1111,14 @@ function killReward(m){
     flash('PK 撃退','#ffd24a',m.rname+' を返り討ち！'); AU.clear();
     S.jb+=3;S.js+=3;S.jc+=1; dropGear(m); dropGear(m); CODEX.rivalKills=(CODEX.rivalKills||0)+1; checkAch(); return;
   }
+  // Infinite Corridor is the Lv.30+ catch-up farm: its elite mobs shower
+  // crafting materials while the player chooses whether to run 1x or 2x EXP.
+  if(m.corridor){
+    if(Math.random()<.46)dropJewel(m,'jb');
+    if(Math.random()<.42)dropJewel(m,'js');
+    if(Math.random()<.30)dropJewel(m,'jc');
+    if(Math.random()<.18)dropJewel(m,'ch');
+  }
   // jewel drops (rarer than before)
   if(Math.random()<(m.boss?1:0.037)) dropJewel(m,'jb');
   if(Math.random()<(m.boss?1:0.033)) dropJewel(m,'js');
@@ -1231,6 +1252,7 @@ function damageBossRanged(mul){ mul=mul||1; if(!S.inDungeon||!D) return; const t
   if(d<110+(tgt.r||40)){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.85+Math.random()*0.3)*(crit?critMul():1)*mul); tgt.hp-=dmg; addFct(tgt.x+(Math.random()*24-12),tgt.y-(tgt.r||40)-8,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); } }
 function dungeonUpdate(dt){
   if(D.ending)return;
+  if(D.corridor){ corridorUpdate(dt); return; }
   if(D.devil){ devilUpdate(dt); return; }
   if(D.chaos){ chaosCastleUpdate(dt); return; }
   if(D.mode==='blood'){ bloodUpdate(dt); return; }
@@ -1269,6 +1291,29 @@ function dungeonUpdate(dt){
     }
   }
   if(b.hp<=0) bossDefeated();
+}
+
+// ---------- infinite corridor (Lv.30+ catch-up farm) ----------
+function enterCorridor(targetLv,expMul){
+  if(!S.running||S.lv<30)return;
+  targetLv=Math.max(30,Math.floor(targetLv||S.lv)); expMul=expMul===2?2:1;
+  document.getElementById('dungeonPanel').classList.remove('show');
+  S.inDungeon=true; S.dunIdx=S.zoneIdx; monsters=[]; drops=[];
+  const diff=Math.max(0,targetLv-S.lv);
+  D={cx:S.px,cy:S.py,radius:360,waves:[],boss:null,corridor:true,targetLv,expMul,spawnCd:0,cleared:false,diff,kills:0};
+  S.px=D.cx; S.py=D.cy;
+  document.getElementById('mExit').style.display='flex';
+  flash('INFINITE CORRIDOR','#75e8ff','敵Lv.'+targetLv+' / EXP '+expMul+'倍　撤退するまで続く'); AU.bossRoar(); updateHUD();
+}
+function corridorUpdate(dt){
+  D.spawnCd-=dt;
+  const cap=26, diff=D.diff||0;
+  if(D.spawnCd<=0&&monsters.length<cap){
+    const n=Math.min(4,cap-monsters.length);
+    for(let i=0;i<n;i++)spawnMonster({cx:D.cx,cy:D.cy,r:150+Math.random()*D.radius*.65,
+      hpMul:1.2+diff*.075,atkMul:1.05+diff*.035,expMul:(D.expMul||1)*(3.4+diff*.12),zenMul:2.3+diff*.08,corridor:true});
+    D.spawnCd=10;
+  }
 }
 
 // ---------- devil square (time-attack survival) ----------
@@ -2067,7 +2112,7 @@ function render(){
     // shockwaves
     for(const w of D.waves){ const wx=sx(w.x), wy=sy(w.y);
       if(w.tele>0){ const p=1-w.tele/48; ctx.strokeStyle='rgba(255,60,90,'+(0.3+0.4*Math.sin(performance.now()*0.02))+')'; ctx.lineWidth=3; ctx.setLineDash([8,8]); ctx.beginPath(); ctx.arc(wx,wy,w.max*0.5,0,6.28); ctx.stroke(); ctx.setLineDash([]); }
-      else { ctx.strokeStyle=D.boss.acc; ctx.globalAlpha=Math.max(0,1-w.r/w.max); ctx.lineWidth=10; ctx.shadowColor=D.boss.acc; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(wx,wy,w.r,0,6.28); ctx.stroke(); ctx.shadowBlur=0; ctx.globalAlpha=1; }
+      else { const waveCol=(D.boss&&D.boss.acc)||'#c98cff'; ctx.strokeStyle=waveCol; ctx.globalAlpha=Math.max(0,1-w.r/w.max); ctx.lineWidth=10; ctx.shadowColor=waveCol; ctx.shadowBlur=16; ctx.beginPath(); ctx.arc(wx,wy,w.r,0,6.28); ctx.stroke(); ctx.shadowBlur=0; ctx.globalAlpha=1; }
     }
   }
 
