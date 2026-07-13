@@ -353,8 +353,23 @@
 <script>
 "use strict";
 const cv = document.getElementById('cv'), ctx = cv.getContext('2d');
-const heroSheet=new Image(); let heroSheetReady=false;
-heroSheet.onload=()=>{heroSheetReady=true;};
+const heroSheet=new Image(); let heroSheetReady=false; const heroTintSheets={};
+const HERO_TINTS={scale:'#48d36b',cantata:'#438cff',hyon:'#e84d55',dragon:'#71d7e8',legend:'#c77dff',gaia:'#ff6bd0'};
+function hexRgb(hex){ return [parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)]; }
+function buildHeroTint(hex){
+  const out=document.createElement('canvas'); out.width=heroSheet.naturalWidth; out.height=heroSheet.naturalHeight;
+  const oc=out.getContext('2d',{willReadFrequently:true}); oc.drawImage(heroSheet,0,0);
+  const im=oc.getImageData(0,0,out.width,out.height), d=im.data, c=hexRgb(hex);
+  for(let i=0;i<d.length;i+=4){
+    if(!d[i+3])continue;
+    const r=d[i],g=d[i+1],b=d[i+2], hi=Math.max(r,g,b), lo=Math.min(r,g,b), lum=(r+g+b)/3;
+    // The original armour is neutral steel.  Recolour only those low-saturation
+    // pixels, preserving the face, red cape, leather, and transparent backdrop.
+    if(hi-lo<34 && lum>28 && lum<242){ const strength=.38+(lum/255)*.44; d[i]=r*(1-strength)+c[0]*strength; d[i+1]=g*(1-strength)+c[1]*strength; d[i+2]=b*(1-strength)+c[2]*strength; }
+  }
+  oc.putImageData(im,0,0); return out;
+}
+heroSheet.onload=()=>{ for(const id in HERO_TINTS)heroTintSheets[id]=buildHeroTint(HERO_TINTS[id]); heroSheetReady=true; };
 heroSheet.onerror=()=>{heroSheetReady=false;};
 heroSheet.src='assets/gothic-knight-sprites.png';
 const monsterSheet=new Image(); let monsterSheetReady=false;
@@ -520,11 +535,13 @@ function seraphyLeftText(){ return Math.max(0,Math.ceil(((S.seraphyUntil||0)-Dat
 // rarity index == position in SETS. col = theme color, baseDef = piece power.
 const SETS=[
   {id:'bronze', name:'ブロンズ',   rar:0, col:'#b9b9b9', baseDef:6,  rname:'コモン', req:{}, theme:'基本に忠実な万能型'},
-  {id:'scale',  name:'スケイル',   rar:1, col:'#7fe07f', baseDef:12, rname:'アンコモン', req:{agi:28}, theme:'敏捷型：手数と回避'},
-  {id:'dragon', name:'ドラゴン',   rar:2, col:'#5db4ff', baseDef:22, rname:'レア', req:{str:48}, theme:'力型：重い一撃'},
-  {id:'legend', name:'レジェンド', rar:3, col:'#c77dff', baseDef:36, rname:'エピック', req:{ene:58}, theme:'知力型：会心と術式'},
-  {id:'hyon',   name:'ハイオン',   rar:4, col:'#ffd24a', baseDef:56, rname:'レジェンダリー', req:{vit:72}, theme:'体力型：生存と防御'},
-  {id:'gaia',   name:'ガイア',     rar:5, col:'#ff6bd0', baseDef:84, rname:'神話', req:{str:70,agi:55,ene:55}, theme:'複合型：完成された戦士'},
+  {id:'scale',  name:'スケイル',   rar:1, col:'#48d36b', baseDef:12, rname:'アンコモン', req:{agi:28}, theme:'敏捷型：手数と回避'},
+  {id:'dragon', name:'ドラゴン',   rar:2, col:'#71d7e8', baseDef:22, rname:'レア', req:{str:48}, theme:'力型：重い一撃'},
+  {id:'cantata',name:'カンタータ', rar:3, col:'#438cff', baseDef:34, rname:'エピック', req:{str:56,agi:38}, theme:'鋼鉄型：青き装甲と均衡'},
+  {id:'legend', name:'レジェンド', rar:4, col:'#c77dff', baseDef:48, rname:'レジェンダリー', req:{ene:58}, theme:'知力型：会心と術式'},
+  {id:'hyon',   name:'ハイオン',   rar:5, col:'#e84d55', baseDef:68, rname:'レジェンダリー', req:{vit:72}, theme:'体力型：紅き生存と防御'},
+  {id:'gaia',   name:'ガイア',     rar:6, col:'#ff6bd0', baseDef:96, rname:'神話', req:{str:70,agi:55,ene:55}, theme:'複合型：完成された戦士'},
+  {id:'archangel',name:'アークエンジェル',rar:7,col:'#fff1a3',baseDef:170,rname:'神話',req:{},theme:'ボス限定：天使の最強武器'},
 ];
 const SLOTS=[
   {k:'weapon',n:'武器',icon:'🗡',mul:1.35}, {k:'helm',n:'兜',icon:'⛑',mul:1.0}, {k:'armor',n:'鎧',icon:'🛡',mul:1.5}, {k:'gloves',n:'籠手',icon:'🧤',mul:0.7}, {k:'boots',n:'具足',icon:'🥾',mul:0.9},
@@ -537,6 +554,7 @@ const WTYPES=[
   {id:'dagger',n:'短剣', icon:'🔪', atkMul:0.75, crit:0.08, range:0,  critMul:1.9},
   {id:'spear', n:'槍',   icon:'🔱', atkMul:0.9,  crit:0,    range:28, critMul:1.8},
   {id:'staff', n:'魔杖', icon:'🪄', atkMul:0.85, crit:0.04, range:12, critMul:2.3},
+  {id:'archangel', n:'アークエンジェル武器', icon:'✦', special:true, atkMul:1, crit:0, range:0, critMul:2.1},
 ];
 const WTYPE_BY_ID=Object.fromEntries(WTYPES.map(w=>[w.id,w]));
 function gearEnh(g){ return g&&Number.isFinite(+g.enh)?Math.max(0,Math.min(15,+g.enh|0)):0; }
@@ -1085,7 +1103,7 @@ function killReward(m){
   if(Math.random()<(m.boss?0.6:0.0027)) dropJewel(m,'ch');
   if(Math.random()<(m.boss?0.8:0.01)) dropJewel(m,'pot');
   // Gear is deliberately a boss reward. Normal monsters only have a near-zero lucky drop.
-  if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); }
+  if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); tryArchangelDrop(.0025,false); }
   else if(Math.random()<0.0008) dropGear(m);
   if(m.boss) flash('BOSS KILL','#ff6bd0','大物を討伐！');
   checkAch();
@@ -1101,10 +1119,22 @@ function rollGearPiece(zi,boss,accessoryOnly){
   const st=SETS[r], slots=accessoryOnly?SLOTS.filter(s=>s.acc):SLOTS, slot=slots[(Math.random()*slots.length)|0];
   const def=Math.max(1,Math.round(st.baseDef*slot.mul*(0.85+Math.random()*0.35)));
   const g=ensureGearItem({set:st.id, slot:slot.k, def, rar:r,enh:0},0);
-  if(slot.k==='weapon') g.wtype=WTYPES[(Math.random()*WTYPES.length)|0].id;
+  if(slot.k==='weapon'){ const normal=WTYPES.filter(w=>!w.special); g.wtype=normal[(Math.random()*normal.length)|0].id; }
   return g;
 }
 function dropGear(m,accessoryOnly){ const g=rollGearPiece(S.zoneIdx,m.boss,accessoryOnly); drops.push({x:m.x+(Math.random()*30-15),y:m.y+(Math.random()*30-15),type:'gear',gear:g,life:18,t:0}); }
+// The divine weapon is deliberately outside normal rarity rolls.  Field-area
+// bosses have a 0.25% chance, named dungeon bosses a 0.65% chance.
+function rollArchangelWeapon(){ return ensureGearItem({set:'archangel',slot:'weapon',wtype:'archangel',def:Math.round(170*(.95+Math.random()*.12)),rar:7,enh:0,angel:true},0); }
+function tryArchangelDrop(rate,instant){
+  if(Math.random()>=rate)return false;
+  const g=rollArchangelWeapon();
+  if(instant) pickupGear(g);
+  else drops.push({x:S.px+(Math.random()*36-18),y:S.py+(Math.random()*28-14),type:'gear',gear:g,life:28,t:0,divine:true});
+  flash('DIVINE DROP','#fff1a3','アークエンジェル武器が降臨した！');
+  AU.bossRoar();
+  return true;
+}
 const INV_MAX=24;
 function pickupGear(g){
   ensureGearItem(g,0);
@@ -1141,17 +1171,17 @@ const BOSSES=[
   {id:'gk', name:'ゴブリンの大王 ガズラ', minLv:3,  hp:1400,  atk:24,  col:'#6a8a3a', acc:'#d0e060', shape:'goblin',  rewardRar:[1,2]},
   {id:'sq', name:'蜘蛛女王 アラクネ',     minLv:10, hp:5200,  atk:46,  col:'#5a3a7a', acc:'#c070ff', shape:'spider',  rewardRar:[2,3]},
   {id:'go', name:'石化のゴーゴン',         minLv:20, hp:16000, atk:82,  col:'#3a7a6a', acc:'#7fffd0', shape:'gorgon',  rewardRar:[2,4]},
-  {id:'lv', name:'深海竜 リヴァイア',      minLv:32, hp:42000, atk:130, col:'#2a6a8a', acc:'#5db4ff', shape:'serpent', rewardRar:[3,4]},
-  {id:'ig', name:'炎魔王 イグニス',        minLv:46, hp:105000,atk:200, col:'#9a3a1a', acc:'#ff7a2a', shape:'demon',   rewardRar:[4,5]},
-  {id:'ab', name:'深淵の支配者 アビス',    minLv:62, hp:280000,atk:320, col:'#3a1850', acc:'#ff5bd0', shape:'abyss',   rewardRar:[5,5]},
+  {id:'lv', name:'深海竜 リヴァイア',      minLv:32, hp:42000, atk:130, col:'#2a6a8a', acc:'#5db4ff', shape:'serpent', rewardRar:[3,5]},
+  {id:'ig', name:'炎魔王 イグニス',        minLv:46, hp:105000,atk:200, col:'#9a3a1a', acc:'#ff7a2a', shape:'demon',   rewardRar:[4,6]},
+  {id:'ab', name:'深淵の支配者 アビス',    minLv:62, hp:280000,atk:320, col:'#3a1850', acc:'#ff5bd0', shape:'abyss',   rewardRar:[6,6]},
 ];
 let D=null;
-function beginDungeonExit(){
+function beginDungeonExit(delay){
   if(!S.inDungeon||!D||D.ending)return;
-  // Do not leave a half-cleared dungeon state around after the boss disappears.
-  // This was the source of the post-boss soft-lock on some phones.
-  D.ending=true; D.waves=[]; D.boss=null; D.relic=null;
-  exitDungeon();
+  // Keep one small, valid ending state for a few frames.  The previous code
+  // nulled D and immediately continued through boss callbacks, which could
+  // leave phone sessions stuck after a kill.
+  D.ending=true; D.exitIn=Math.max(8,Number(delay)||24); D.waves=[]; D.boss=null; D.relic=null;
 }
 function enterDungeon(bi,targetLv){
   const cfg=BOSSES[bi]; targetLv=Math.max(1,Math.floor(targetLv||S.lv));
@@ -1174,17 +1204,25 @@ function exitDungeon(){
   saveGame(); updateHUD();
 }
 function bossDefeated(){
-  if(D.cleared) return; D.cleared=true;
-  const b=D.boss, rr=b.rewardRar, runLv=D.level||S.lv, rewardScale=1+Math.max(0,runLv-S.lv)*.04;
-  CODEX.bosses[BOSSES[S.dunIdx].id]=true; checkAch(); saveGame();
-  gainExp(Math.floor(ZONES[Math.min(ZONES.length-1,S.dunIdx)].exp*45*rewardScale));
-  S.zen+=Math.floor(2500*(S.dunIdx+1)*rewardScale); S.jb+=Math.floor((6+S.dunIdx*3)*rewardScale); S.js+=Math.floor((6+S.dunIdx*3)*rewardScale); S.jc+=1+S.dunIdx; S.charm+=1+(S.dunIdx>2?1:0);
-  const n=2+(Math.random()<0.55?1:0);
-  for(let i=0;i<n;i++){ const rar=Math.min(SETS.length-1, rr[0]+((Math.random()*(rr[1]-rr[0]+1))|0)); const st=SETS[rar];
-    const slot=SLOTS[(Math.random()*SLOTS.length)|0]; const def=Math.round(st.baseDef*slot.mul*(1.0+Math.random()*0.3));
-    pickupGear({set:st.id,slot:slot.k,def,rar:st.rar}); }
-  flash('DUNGEON CLEAR','#ffd24a',b.name+' を撃破！報酬獲得'); AU.clear();
-  beginDungeonExit(90);
+  if(!S.inDungeon||!D||D.cleared)return;
+  const run=D, b=run.boss;
+  run.cleared=true;
+  try{
+    if(!b)throw new Error('Boss state was already missing');
+    const rr=b.rewardRar, runLv=run.level||S.lv, rewardScale=1+Math.max(0,runLv-S.lv)*.04;
+    CODEX.bosses[BOSSES[S.dunIdx].id]=true; checkAch();
+    gainExp(Math.floor(ZONES[Math.min(ZONES.length-1,S.dunIdx)].exp*45*rewardScale));
+    S.zen+=Math.floor(2500*(S.dunIdx+1)*rewardScale); S.jb+=Math.floor((6+S.dunIdx*3)*rewardScale); S.js+=Math.floor((6+S.dunIdx*3)*rewardScale); S.jc+=1+S.dunIdx; S.charm+=1+(S.dunIdx>2?1:0);
+    const n=2+(Math.random()<0.55?1:0);
+    for(let i=0;i<n;i++){ const rar=Math.min(SETS.length-2,rr[0]+((Math.random()*(rr[1]-rr[0]+1))|0)), st=SETS[rar], slot=SLOTS[(Math.random()*SLOTS.length)|0];
+      pickupGear({set:st.id,slot:slot.k,def:Math.round(st.baseDef*slot.mul*(1+Math.random()*.3)),rar:st.rar}); }
+    tryArchangelDrop(.0065,true);
+    flash('DUNGEON CLEAR','#ffd24a',b.name+' を撃破！報酬獲得'); AU.clear();
+  }catch(err){
+    console.error('Dungeon-clear recovery',err); toast('討伐報酬を整理して町へ帰還します');
+  }finally{
+    saveGame(); beginDungeonExit(18);
+  }
 }
 function damageBossRanged(mul){ mul=mul||1; if(!S.inDungeon||!D) return; const tgt=D.boss||(D.seal&&D.seal.hp>0?D.seal:null); if(!tgt) return;
   const d=Math.hypot(tgt.x-S.px,tgt.y-S.py);
@@ -1405,7 +1443,9 @@ function update(dt){
   heroMotion.phase+=(0.12+movePower*.25)*dt;
   const targetLean=(Math.abs(heroMotion.dirX)>.08?heroMotion.dirX:S.facing)*movePower*.12;
   heroMotion.lean+=(targetLean-heroMotion.lean)*(1-Math.pow(0.78,dt));
-  heroMotion.hit=Math.max(0,heroMotion.hit-dt*.075);
+  // Hit recoil is visual only.  The old 13-second decay made ordinary walking
+  // look like a permanent knockback after taking a single hit.
+  heroMotion.hit=Math.max(0,heroMotion.hit-dt*.82);
   // combo / attack-animation timers
   combo.timer-=dt;
   if(atkAnim){ atkAnim.life-=dt*0.085; if(atkAnim.life<=0) atkAnim=null; }
@@ -1518,6 +1558,57 @@ function shade(hex,amt){ let c=hex.replace('#',''); if(c.length===3)c=c.split(''
   return 'rgb('+r+','+g+','+b+')'; }
 function equippedArmorColor(){ let best=null; for(const s of SLOTS){ const g=S.gear[s.k]; if(g&&(!best||g.rar>best.rar)) best=g; } return best?SET_BY_ID[best.set].col:'#46506e'; }
 function slotGearColor(slot,fallback){ const g=S.gear[slot]; return g?SET_BY_ID[g.set].col:fallback; }
+function heroVisualSet(){
+  const count={};
+  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(g)count[g.set]=(count[g.set]||0)+1; }
+  let pick=null;
+  for(const id in count){ const st=SET_BY_ID[id]; if(!pick||count[id]>pick.n||(count[id]===pick.n&&st.rar>pick.st.rar))pick={st,n:count[id]}; }
+  return pick?{...pick.st,pieces:pick.n}:null;
+}
+function isArchangelWeapon(){ const g=S.gear.weapon; return !!(g&&(g.angel||g.set==='archangel'||g.wtype==='archangel')); }
+function visibleArmorEnh(){
+  // A complete set must reach the threshold together.  One highly upgraded
+  // piece cannot create the full-body MU-style shine by itself.
+  const levels=[];
+  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(!g)return 0; levels.push(gearEnh(g)); }
+  return Math.min(...levels);
+}
+function drawArmorGleam(px,py,lv,t){
+  if(lv<9)return;
+  const stage=lv>=15?4:lv>=13?3:lv>=11?2:1;
+  const col=['#bfeaff','#79dfff','#ffd35e','#ff63df'][stage-1];
+  const power=[.26,.48,.72,1][stage-1], sweep=(t%(1650-stage*130))/(1650-stage*130);
+  ctx.save(); ctx.globalCompositeOperation='screen'; ctx.strokeStyle=col; ctx.fillStyle=col;
+  ctx.shadowColor=col; ctx.shadowBlur=4+power*14; ctx.globalAlpha=.3+power*.52;
+  // A short travelling reflection follows the breastplate; it is not a panel
+  // overlay, so the original armour detail remains visible.
+  const y=py-42+sweep*48;
+  ctx.lineWidth=1+power*1.8; ctx.beginPath(); ctx.moveTo(px-13,y+6); ctx.lineTo(px+13,y-5); ctx.stroke();
+  const sparks=[1,3,5,9][stage-1];
+  for(let i=0;i<sparks;i++){
+    const a=t*.0036+i*2.41, rr=13+(i%3)*4;
+    const x=px+Math.cos(a)*rr, sy=py-19+Math.sin(a*1.7)*27;
+    const size=1+power*1.8;
+    ctx.globalAlpha=(.28+power*.48)*(i===0?.9:.55);
+    ctx.beginPath(); ctx.moveTo(x-size*2,sy); ctx.lineTo(x+size*2,sy); ctx.moveTo(x,sy-size*2); ctx.lineTo(x,sy+size*2); ctx.stroke();
+  }
+  ctx.restore();
+}
+function drawArchangelAura(px,py,f,t){
+  ctx.save(); ctx.globalCompositeOperation='screen'; ctx.strokeStyle='rgba(255,241,163,.72)'; ctx.shadowColor='#fff1a3'; ctx.shadowBlur=16; ctx.lineWidth=1.7;
+  ctx.beginPath(); ctx.ellipse(px,py-30,21+Math.sin(t*.004)*2,8,0,0,6.28); ctx.stroke();
+  for(let i=0;i<6;i++){ const a=t*.004+i*Math.PI/3; ctx.fillStyle=i%2?'#fff8cf':'#ffd86b'; ctx.beginPath(); ctx.arc(px+Math.cos(a)*25,py-24+Math.sin(a)*12,1.8,0,6.28); ctx.fill(); }
+  ctx.restore();
+}
+function drawArchangelBlade(px,py,f,t){
+  const swing=atkAnim?Math.sin((1-Math.max(0,atkAnim.life))*Math.PI)*.38:Math.sin(t*.003)*.045;
+  ctx.save(); ctx.translate(px+f*19,py-13); ctx.rotate(f*(-.22+swing)); ctx.scale(f,1); ctx.shadowColor='#fff1a3'; ctx.shadowBlur=15;
+  ctx.strokeStyle='#fff8d0'; ctx.lineWidth=4.3; ctx.beginPath(); ctx.moveTo(0,9); ctx.lineTo(0,-31); ctx.stroke();
+  ctx.strokeStyle='#e6aa35'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(0,8); ctx.lineTo(0,-30); ctx.stroke();
+  psxPoly([[0,-40],[6,-29],[3,-17],[-3,-17],[-6,-29]],'#fff9cf','#c98b25');
+  ctx.strokeStyle='#f6cf63'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(-7,5); ctx.lineTo(7,5); ctx.stroke();
+  ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(0,5,2.7,0,6.28); ctx.fill(); ctx.restore();
+}
 function drawWings(px,py,t){
   if(S.wing<=0) return;
   const wc=['','#dfe6f0','#9ad0ff','#c89aff','#ff6a6a'][S.wing];
@@ -1686,9 +1777,11 @@ function drawDetailedHero(px,py){
   const recoilWave=heroMotion.hit>0?Math.sin((1-heroMotion.hit)*Math.PI):0;
   const recoilX=heroMotion.hitSide*recoilWave*5.5;
   const weaponEnh=equippedWeaponEnh();
-  const glow=weaponEnh>=10?'#ff5bd0':weaponEnh>=6?'#ffd24a':weaponEnh>=1?'#78bfff':null;
+  const visualSet=heroVisualSet(), angel=isArchangelWeapon();
+  const glow=angel?'#fff1a3':weaponEnh>=10?'#ff5bd0':weaponEnh>=6?'#ffd24a':weaponEnh>=1?'#78bfff':null;
 
   ctx.fillStyle='rgba(0,0,0,.52)'; ctx.beginPath(); ctx.ellipse(px,py+21,21-jump*.18,6-jump*.05,0,0,6.28); ctx.fill();
+  if(angel)drawArchangelAura(px,py,f,now);
   if(S.wing>0){ ctx.save(); ctx.translate(px,py-27-jump); ctx.scale(1.55,1.55); drawWings(0,0,Math.floor(now/90)*90); ctx.restore(); }
   ctx.save();
   ctx.translate(px+recoilX,py+gaitBob-jump);
@@ -1696,18 +1789,23 @@ function drawDetailedHero(px,py){
   ctx.scale(f,1);
   if(glow){ ctx.shadowColor=glow; ctx.shadowBlur=7+weaponEnh*.55; }
   if(heroMotion.hit>.06){ ctx.shadowColor='#ff4a42'; ctx.shadowBlur=12; }
-  ctx.drawImage(heroSheet,sx,sy,sw,sh,-dw/2,-dh+31,dw,dh);
+  // A full material colour is reserved for a complete four-piece armour set:
+  // helm, armour, gloves, and boots all from the same family.
+  const displaySheet=(visualSet&&visualSet.pieces>=4&&heroTintSheets[visualSet.id])||heroSheet;
+  ctx.drawImage(displaySheet,sx,sy,sw,sh,-dw/2,-dh+31,dw,dh);
   ctx.shadowBlur=0; ctx.restore();
 
-  // Four subtle equipment sigils preserve the mixed-set read without obscuring the sprite.
-  const sigils=['helm','armor','gloves','boots'].map(k=>slotGearColor(k,null)).filter(Boolean);
-  ctx.save(); ctx.globalAlpha=.72;
-  for(let i=0;i<sigils.length;i++){
-    const x=px+(i-(sigils.length-1)/2)*6, y=py+27+(i%2);
-    ctx.fillStyle=sigils[i]; ctx.shadowColor=sigils[i]; ctx.shadowBlur=4;
-    psxPoly([[x,y-2.5],[x+2.5,y],[x,y+2.5],[x-2.5,y]],sigils[i]);
+  // Small, slot-local highlights make a lone coloured boot or glove readable
+  // without pretending that the rest of the armour belongs to that set.
+  const accents={helm:[[0,-54]],armor:[[0,-18]],gloves:[[-18,-12],[18,-12]],boots:[[-10,28],[10,28]]};
+  ctx.save(); ctx.globalAlpha=.78;
+  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(!g)continue; const col=SET_BY_ID[g.set].col;
+    for(const p of accents[k]){ const x=px+p[0],y=py+p[1]; ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=5;
+      psxPoly([[x,y-2.2],[x+2.2,y],[x,y+2.2],[x-2.2,y]],col); }
   }
   ctx.restore(); ctx.shadowBlur=0;
+  drawArmorGleam(px,py,visibleArmorEnh(),now);
+  if(angel)drawArchangelBlade(px,py,f,now);
   if(weaponEnh>0){ ctx.fillStyle=glow||'#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.shadowColor=glow||'#fff'; ctx.shadowBlur=6; ctx.fillText('+'+weaponEnh,px,py-76); ctx.shadowBlur=0; }
 }
 
