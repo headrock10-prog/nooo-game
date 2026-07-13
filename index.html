@@ -3,6 +3,14 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#090806">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nooo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 <title>Nooo 偶然の空地</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
@@ -137,6 +145,7 @@
   <div class="mbtn" id="mChaos">🔥</div>
   <div class="mbtn" id="mAcc">💍</div>
   <div class="mbtn" id="mGear">🛡<span class="dot" id="gearDot" style="display:none"></span></div>
+  <div class="mbtn" id="mTown">🏘</div>
   <div class="mbtn" id="mDun">🏰</div>
   <div class="mbtn" id="mCodex">📖</div>
   <div class="mbtn" id="mAuto">💤</div>
@@ -174,6 +183,7 @@
       <div class="row"><span class="k">攻撃力</span><span class="v" id="dAtk">0</span></div>
       <div class="row"><span class="k">防御力</span><span class="v" id="dDef">0</span></div>
       <div class="row"><span class="k">会心率</span><span class="v" id="dCrit">0%</span></div>
+      <div class="row"><span class="k">攻撃速度</span><span class="v" id="dAspd">0%</span></div>
       <div class="row"><span class="k">装備強化 合計</span><span class="v"><span class="plus" id="dWep">+0</span></span></div>
       <div class="row"><span class="k">アクセサリ</span><span class="v" id="dWing">0 / 3</span></div>
       <div class="row"><span class="k">総戦闘力</span><span class="v" style="color:#f1c878" id="dCP">0</span></div>
@@ -273,6 +283,40 @@
   </div>
 </div>
 
+<!-- TOWN panel -->
+<div class="panel" id="townPanel">
+  <div class="pTitle">セリアの休息所</div>
+  <div class="pClose" data-close>×</div>
+  <div class="pBody">
+    <div class="card" style="text-align:center">
+      <div style="font-size:34px">🏘 ✨ 🧚</div>
+      <h3>旅人の灯火亭</h3>
+      <div class="small" id="townStory" style="line-height:1.75"></div>
+      <button class="gbtn green" id="restBtn" style="margin-top:10px">🍵 休憩して全回復</button>
+    </div>
+    <div class="card" style="text-align:center">
+      <div style="font-size:34px">🧚‍♀️</div>
+      <h3 style="color:#9dff8a">祝福師 セラフィー</h3>
+      <div class="small" id="seraphyInfo" style="line-height:1.7">10分間、力・敏捷・知力・体力を+18。</div>
+      <button class="gbtn green" id="seraphyBtn" style="margin-top:10px">🍀 緑の祝福を受ける</button>
+    </div>
+    <div class="card">
+      <h3>🌀 追憶の転送門</h3>
+      <div class="small" style="line-height:1.7;margin-bottom:8px">到達済みの場所なら、いつでも戻れる。浅瀬での育成や素材集めにも使える。</div>
+      <div id="zoneWarpList"></div>
+    </div>
+    <div class="card">
+      <h3>傭兵紹介所</h3>
+      <div class="small" id="mercInfo" style="line-height:1.7;margin-bottom:8px"></div>
+      <div id="mercHireList"></div>
+    </div>
+    <div class="card">
+      <h3>攻城戦計画書（準備中）</h3>
+      <div class="small" style="line-height:1.7">ギルドを結成し、領地を守る非同期攻城戦を次の大型更新で追加予定。<br>予定内容：ギルド旗・防衛編成・週替わり城主・報酬倉庫。</div>
+    </div>
+  </div>
+</div>
+
 <!-- CODEX panel -->
 <div class="panel" id="codexPanel">
   <div class="pTitle">図鑑 / 実績</div>
@@ -319,6 +363,9 @@ monsterSheet.src='assets/gothic-monsters-atlas.png';
 const bossSheet=new Image(); let bossSheetReady=false;
 bossSheet.onload=()=>{bossSheetReady=true;}; bossSheet.onerror=()=>{bossSheetReady=false;};
 bossSheet.src='assets/gothic-bosses-atlas.png';
+const fairyMercSheet=new Image(); let fairyMercSheetReady=false;
+fairyMercSheet.onload=()=>{fairyMercSheetReady=true;}; fairyMercSheet.onerror=()=>{fairyMercSheetReady=false;};
+fairyMercSheet.src='fairy-mercs.png';
 // PS1らしい低い内部解像度で描き、CSSで最近傍拡大する
 let W=0,H=0,DPR=0.72;
 // Deliberately paced below real-time so combat reads clearly on a phone screen.
@@ -330,7 +377,9 @@ window.addEventListener('resize',resize); resize();
 const AU={
   ctx:null,on:true,master:null,bgmTimer:null,bi:0,
   init(){ if(this.ctx)return; const AC=window.AudioContext||window.webkitAudioContext; if(!AC)return;
-    this.ctx=new AC(); this.master=this.ctx.createGain(); this.master.gain.value=0.32; this.master.connect(this.ctx.destination); this.startBgm(); },
+    this.ctx=new AC(); this.master=this.ctx.createGain(); this.master.gain.value=0.38;
+    const comp=this.ctx.createDynamicsCompressor(); comp.threshold.value=-20; comp.knee.value=12; comp.ratio.value=5; comp.attack.value=.006; comp.release.value=.18;
+    this.master.connect(comp); comp.connect(this.ctx.destination); this.startBgm(); },
   resume(){ if(this.ctx&&this.ctx.state==='suspended') this.ctx.resume(); },
   blip(freq,dur,type,vol){ if(!this.on||!this.ctx)return; const t=this.ctx.currentTime,o=this.ctx.createOscillator(),g=this.ctx.createGain();
     o.type=type||'square'; o.frequency.setValueAtTime(freq,t); g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol||0.25,t+0.008);
@@ -355,6 +404,14 @@ const AU={
   destroy(){ this.noise(0.45,0.32); this.slide(160,50,0.5,'sawtooth',0.3); },
   pickup(){ this.blip(880,0.09,'triangle',0.18); this.blip(1180,0.08,'triangle',0.12); },
   heal(){ this.seq([520,720],50,0.14,'sine',0.2); },
+  bless(){ this.seq([523,659,784,1046],58,0.16,'sine',0.16); this.blip(1568,.24,'triangle',.1); },
+  warp(){ this.slide(180,920,.42,'sine',.18); this.seq([440,660,990],70,.12,'triangle',.12); },
+  enemyAttack(kind,boss,rival){
+    if(boss) { this.noise(.12,.13); this.slide(125,72,.22,'sawtooth',.18); }
+    else if(rival) this.slide(440,150,.18,'square',.15);
+    else if(kind==='bat'||kind==='imp') this.blip(1040,.055,'square',.10);
+    else this.noise(.07,.08);
+  },
   bossRoar(){ this.noise(0.5,0.25); this.slide(90,55,0.7,'sawtooth',0.32); },
   cast(){ this.slide(300,520,0.3,'sine',0.18); },
   boom(){ this.noise(0.3,0.3); this.blip(70,0.3,'sawtooth',0.28); },
@@ -373,12 +430,20 @@ const AU={
     }
   },
   startBgm(){ if(this.bgmTimer)return;
-    const dark=[110,130.8,146.8,98,110,164.8,146.8,123.5], lit=[220,261.6,293.7,196,220,329.6,293.7,246.9], bass=[55,55,49,49];
-    this.bgmTimer=setInterval(()=>{ if(!this.on||!this.ctx)return; const inD=S.inDungeon; const sc=inD?dark:lit;
-      this.blip(sc[this.bi%sc.length],0.42,'triangle',0.06);                       // melody
-      if(this.bi%2===0) this.blip(bass[(this.bi/2)%bass.length]*(inD?0.92:1),0.5,'sine',0.075); // bass
-      if(this.bi%4===0) this.noise(0.05,0.05);                                      // soft beat
-      this.bi++; },380); },
+    const themes=[
+      {lead:[220,277,330,294,247,294,370,330],bass:[55,55,49,55],wave:'triangle'},
+      {lead:[196,247,294,330,294,247,220,247],bass:[49,49,55,49],wave:'triangle'},
+      {lead:[147,175,196,165,147,131,147,175],bass:[37,37,41,33],wave:'sine'},
+      {lead:[131,147,175,196,175,147,131,110],bass:[33,33,29,33],wave:'sine'},
+      {lead:[110,131,147,131,98,110,131,147],bass:[27,27,31,24],wave:'sawtooth'}
+    ], dungeon={lead:[110,131,147,98,110,165,147,124],bass:[55,55,49,49],wave:'triangle'}, boss={lead:[82,98,110,123,98,110,147,123],bass:[41,41,37,37],wave:'sawtooth'};
+    this.bgmTimer=setInterval(()=>{ if(!this.on||!this.ctx)return;
+      const bossOn=(S.inDungeon&&D&&D.boss)||monsters.some(m=>m.areaBoss||m.rival), th=bossOn?boss:(S.inDungeon?dungeon:themes[Math.min(themes.length-1,S.zoneIdx)]), n=this.bi%th.lead.length;
+      this.blip(th.lead[n],.34,th.wave,bossOn?.085:.052);
+      if(n%2===0)this.blip(th.bass[(n/2|0)%th.bass.length],.42,'sine',bossOn?.10:.068);
+      if(n%4===0)this.noise(.045,bossOn?.09:.045);
+      if(bossOn&&n===3)this.blip(th.lead[n]*2,.12,'square',.045);
+      this.bi++; },310); },
   toggle(){ this.on=!this.on; const el=document.getElementById('mSound'); if(el) el.textContent=this.on?'♪':'🔇'; if(this.on&&!this.ctx)this.init(); }
 };
 document.addEventListener('pointerdown',()=>{ AU.init(); AU.resume(); },{once:false});
@@ -401,6 +466,9 @@ const S = {
   gearSeq:1,
   inDungeon:false, dunIdx:0,
   auto:false,
+  seraphyUntil:0,
+  mercBlessUntil:0,
+  merc:null,
 };
 let pet={x:0,y:0,t:0,carry:null}, autoAtkCd=0;
 // Hero animation state: movement is smoothed separately from game physics so
@@ -444,16 +512,19 @@ const ZONES = [
   {name:"アトランス海溝", minLv:26, mhp:1150,matk:135,exp:110,zen:180,col:"#143040", mcol:"#2a6a8a", boss:false},
   {name:"カランダ火山",   minLv:42, mhp:2900,matk:265,exp:260,zen:380,col:"#3a1810", mcol:"#9a4a22", boss:true},
 ];
+function seraphyActive(){ return Date.now()<(S.seraphyUntil||0); }
+function blessedStat(k){ return S[k]+(seraphyActive()?18:0); }
+function seraphyLeftText(){ return Math.max(0,Math.ceil(((S.seraphyUntil||0)-Date.now())/60000)); }
 // derived stats
 // ---------- set equipment ----------
 // rarity index == position in SETS. col = theme color, baseDef = piece power.
 const SETS=[
-  {id:'bronze', name:'ブロンズ',   rar:0, col:'#b9b9b9', baseDef:6,  rname:'コモン'},
-  {id:'scale',  name:'スケイル',   rar:1, col:'#7fe07f', baseDef:12, rname:'アンコモン'},
-  {id:'dragon', name:'ドラゴン',   rar:2, col:'#5db4ff', baseDef:22, rname:'レア'},
-  {id:'legend', name:'レジェンド', rar:3, col:'#c77dff', baseDef:36, rname:'エピック'},
-  {id:'hyon',   name:'ハイオン',   rar:4, col:'#ffd24a', baseDef:56, rname:'レジェンダリー'},
-  {id:'gaia',   name:'ガイア',     rar:5, col:'#ff6bd0', baseDef:84, rname:'神話'},
+  {id:'bronze', name:'ブロンズ',   rar:0, col:'#b9b9b9', baseDef:6,  rname:'コモン', req:{}, theme:'基本に忠実な万能型'},
+  {id:'scale',  name:'スケイル',   rar:1, col:'#7fe07f', baseDef:12, rname:'アンコモン', req:{agi:28}, theme:'敏捷型：手数と回避'},
+  {id:'dragon', name:'ドラゴン',   rar:2, col:'#5db4ff', baseDef:22, rname:'レア', req:{str:48}, theme:'力型：重い一撃'},
+  {id:'legend', name:'レジェンド', rar:3, col:'#c77dff', baseDef:36, rname:'エピック', req:{ene:58}, theme:'知力型：会心と術式'},
+  {id:'hyon',   name:'ハイオン',   rar:4, col:'#ffd24a', baseDef:56, rname:'レジェンダリー', req:{vit:72}, theme:'体力型：生存と防御'},
+  {id:'gaia',   name:'ガイア',     rar:5, col:'#ff6bd0', baseDef:84, rname:'神話', req:{str:70,agi:55,ene:55}, theme:'複合型：完成された戦士'},
 ];
 const SLOTS=[
   {k:'weapon',n:'武器',icon:'🗡',mul:1.35}, {k:'helm',n:'兜',icon:'⛑',mul:1.0}, {k:'armor',n:'鎧',icon:'🛡',mul:1.5}, {k:'gloves',n:'籠手',icon:'🧤',mul:0.7}, {k:'boots',n:'具足',icon:'🥾',mul:0.9},
@@ -499,10 +570,19 @@ function normalizeGearState(){
 }
 function totalGearEnh(){ let n=0; for(const s of SLOTS)n+=gearEnh(S.gear[s.k]); return n; }
 function weaponInfo(){ const g=S.gear.weapon; if(!g) return {atk:0,crit:0,range:0,critMul:1.8,wt:null};
+  // Weapon kinds are visual choices only.  Every weapon follows the same
+  // combat rules so a favorite look never becomes the "wrong" build.
   const wt=WTYPE_BY_ID[g.wtype]||WTYPES[0];
-  return {atk:g.def*1.5*wt.atkMul*enhanceMul(gearEnh(g)), crit:wt.crit, range:wt.range, critMul:wt.critMul, wt}; }
+  return {atk:g.def*1.5*enhanceMul(gearEnh(g)), crit:0, range:0, critMul:1.8, wt}; }
 const SET_BY_ID=Object.fromEntries(SETS.map(s=>[s.id,s]));
 const SLOT_BY_K=Object.fromEntries(SLOTS.map(s=>[s.k,s]));
+function gearReqText(g){ const r=SET_BY_ID[g.set].req||{}, a=[]; if(r.str)a.push('力'+r.str); if(r.agi)a.push('敏'+r.agi); if(r.ene)a.push('知'+r.ene); if(r.vit)a.push('体'+r.vit); return a.length?a.join(' / '):'なし'; }
+function canUseGear(g){
+  const r=SET_BY_ID[g.set].req||{};
+  // A Seraphy blessing is a real temporary stat increase, so it can also open
+  // up equipment choices while the blessing is active.
+  return (!r.str||blessedStat('str')>=r.str)&&(!r.agi||blessedStat('agi')>=r.agi)&&(!r.ene||blessedStat('ene')>=r.ene)&&(!r.vit||blessedStat('vit')>=r.vit);
+}
 function gearName(g){ if(g.slot==='weapon') return SET_BY_ID[g.set].name+'の'+(WTYPE_BY_ID[g.wtype]||WTYPES[0]).n; return SET_BY_ID[g.set].name+'の'+SLOT_BY_K[g.slot].n; }
 function isAccessorySlot(k){ return !!(SLOT_BY_K[k]&&SLOT_BY_K[k].acc); }
 function accessoryBonus(){
@@ -515,7 +595,7 @@ function accessoryBonus(){
 }
 function gearStatText(g){
   const enh=gearEnh(g), p=enhanceMul(enh);
-  if(g.slot==='weapon')return '攻+'+Math.round(g.def*1.5*(WTYPE_BY_ID[g.wtype]||WTYPES[0]).atkMul*p);
+  if(g.slot==='weapon')return '攻+'+Math.round(g.def*1.5*p);
   if(g.slot==='ring')return '攻+'+Math.round(g.def*.9*p);
   if(g.slot==='necklace')return 'HP+'+Math.round(g.def*.6*p)+'%';
   if(g.slot==='talisman')return '会心+'+(g.def*.22*p).toFixed(1)+'%';
@@ -525,16 +605,21 @@ function gearDefTotal(){ let d=0; for(const s of SLOTS){ if(s.k==='weapon'||isAc
 // aggregate set bonuses across equipped pieces (mixed sets allowed)
 function setBonus(){
   const cnt={}; for(const s of SLOTS){ const g=S.gear[s.k]; if(g) cnt[g.set]=(cnt[g.set]||0)+1; }
-  const res={defPct:0,atkPct:0,hpPct:0,crit:0,lines:[]};
+  const res={defPct:0,atkPct:0,hpPct:0,crit:0,atkSpeed:0,lines:[]};
   for(const id in cnt){ const c=cnt[id], st=SET_BY_ID[id]; const r=st.rar;
     if(c>=2){ const v=8+r*3; res.defPct+=v; res.lines.push({col:st.col,t:st.name+' 2セット: 防御+'+v+'%'}); }
     if(c>=3){ const v=6+r*3; res.atkPct+=v; res.lines.push({col:st.col,t:st.name+' 3セット: 攻撃+'+v+'%'}); }
     if(c>=4){ const hv=10+r*4, cv=0.02+r*0.01; res.hpPct+=hv; res.crit+=cv; res.defPct+=5; res.atkPct+=5;
       res.lines.push({col:st.col,t:st.name+' フルセット: HP+'+hv+'% 会心+'+Math.round(cv*100)+'% 攻防+5%'}); }
+    if(c>=2 && st.id==='scale'){ res.atkSpeed+=.10; res.lines.push({col:st.col,t:'スケイル機動: 攻撃速度+10%'}); }
+    if(c>=3 && st.id==='legend'){ res.atkSpeed+=.08; res.lines.push({col:st.col,t:'レジェンド詠唱: 攻撃速度+8%'}); }
+    if(c>=4 && st.id==='gaia'){ res.atkSpeed+=.14; res.lines.push({col:st.col,t:'ガイア連撃: 攻撃速度+14%'}); }
   }
   return res;
 }
-function maxHpCalc(){ const a=accessoryBonus(); return Math.floor((80 + S.vit*8 + S.lv*12) * (1+setBonus().hpPct/100+a.hpPct)); }
+function attackSpeed(){ return Math.min(2.35,1+blessedStat('agi')*.012+setBonus().atkSpeed); }
+function attackCooldown(base){ return Math.max(11,Math.round((base||42)/attackSpeed())); }
+function maxHpCalc(){ const a=accessoryBonus(); return Math.floor((80 + blessedStat('vit')*8 + S.lv*12) * (1+setBonus().hpPct/100+a.hpPct)); }
 const WINGS=[
   {name:"なし", mul:1.0, eff:"-", icon:"🚫"},
   {name:"1次の羽", mul:1.25, eff:"攻撃/防御 +25%", icon:"🪶"},
@@ -542,16 +627,23 @@ const WINGS=[
   {name:"3次の翼", mul:2.1, eff:"攻撃/防御 +110%", icon:"🪽"},
   {name:"破壊の大翼", mul:3.0, eff:"攻撃/防御 +200%", icon:"😈"},
 ];
-function atkCalc(){ return Math.floor((10 + S.str*1.6 + S.lv*2 + weaponInfo().atk + accessoryBonus().atk) * (1+setBonus().atkPct/100)); }
-function defCalc(){ return Math.floor((4 + S.agi*0.6 + S.lv*1.2 + gearDefTotal()) * (1+setBonus().defPct/100)); }
-function critCalc(){ return Math.min(0.65, 0.03 + S.ene*0.004 + setBonus().crit + weaponInfo().crit + accessoryBonus().crit); }
+function mercBlessActive(){ return Date.now()<(S.mercBlessUntil||0); }
+function atkCalc(){ return Math.floor((10 + blessedStat('str')*1.6 + S.lv*2 + weaponInfo().atk + accessoryBonus().atk) * (1+setBonus().atkPct/100) * (mercBlessActive()?1.16:1)); }
+function defCalc(){ return Math.floor((4 + blessedStat('agi')*0.6 + S.lv*1.2 + gearDefTotal()) * (1+setBonus().defPct/100) * (mercBlessActive()?1.12:1)); }
+function critCalc(){ return Math.min(0.65, 0.03 + blessedStat('ene')*0.004 + setBonus().crit + weaponInfo().crit + accessoryBonus().crit); }
 function critMul(){ return weaponInfo().critMul; }
 function cpCalc(){ let g=0; for(const s of SLOTS){ const it=S.gear[s.k]; if(it) g+=it.def*2+(it.rar+1)*40+gearEnh(it)*40; } return Math.floor(atkCalc()*2 + defCalc()*3 + S.maxhp*0.4 + g); }
 // recompute maxhp after gear change, keep hp ratio
 function recalcHp(){ const ratio=S.maxhp>0?S.hp/S.maxhp:1; S.maxhp=maxHpCalc(); S.hp=Math.min(S.maxhp,Math.max(1,Math.round(S.maxhp*ratio))); }
 
 // ---------- entities ----------
-let monsters=[], drops=[], fcts=[], slashes=[], parts=[];
+let monsters=[], drops=[], fcts=[], slashes=[], parts=[], enemyFx=[];
+const MERCS={
+  mage:{name:'蒼月の大妖精 ミラ',price:650,maxhp:210,col:'#8fb6ff',icon:'🧚',desc:'魔弾で敵を撃ち抜く大妖精'},
+  archer:{name:'森弓の大妖精 リン',price:850,maxhp:270,col:'#7fe09a',icon:'🧚',desc:'風の矢を放つ大妖精'},
+  healer:{name:'白光の大妖精 エルナ',price:1000,maxhp:330,col:'#ffd6f4',icon:'🧚',desc:'回復と祝福に専念する大妖精'}
+};
+function mercActive(){ return !!(S.merc&&S.merc.hp>0&&MERCS[S.merc.type]); }
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++){ const a=Math.random()*6.28, v=(0.6+Math.random()*1.4)*(spd||2.2);
   parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-0.8,life:1,col,r:1.5+Math.random()*2.5}); } }
 const ZKINDS=[ ['slime','bat'], ['wolf','bat'], ['skeleton','imp'], ['fish','skeleton'], ['imp','golem'] ];
@@ -569,13 +661,18 @@ function spawnMonster(opt){
   const ang=Math.random()*Math.PI*2, r=opt.r!=null?opt.r:320+Math.random()*260;
   const area=areaBossForZone();
   const isBoss = !!(opt.areaBoss && !opt.minion && !S.inDungeon && area && S.lv>=area.minLv && !monsters.some(m=>m.areaBoss));
-  const hp = (isBoss?area.hp:z.mhp)*(0.85+Math.random()*0.4)*(opt.hpMul||1);
-  const kinds=ZKINDS[S.zoneIdx]||ZKINDS[0];
+  // From Lv.30 onward, field monsters keep pace with the hero instead of becoming one-hit targets.
+  const fieldOver=Math.max(0,S.lv-Math.max(30,z.minLv+4));
+  const fieldHpMul=1+fieldOver*.19+Math.max(0,S.lv-z.minLv)*.035;
+  const fieldAtkMul=1+fieldOver*.075+Math.max(0,S.lv-z.minLv)*.018;
+  const hp = (isBoss?area.hp*3:z.mhp)*(isBoss?1:fieldHpMul)*(0.85+Math.random()*0.4)*(opt.hpMul||1);
+  const kinds=ZKINDS[S.zoneIdx]||ZKINDS[0], kind=isBoss?'boss':kinds[(Math.random()*kinds.length)|0];
+  const reach=isBoss?92:({slime:30,bat:42,wolf:34,skeleton:112,imp:138,fish:72,golem:48}[kind]||34);
   monsters.push({
     x:(opt.cx??S.px)+Math.cos(ang)*r, y:(opt.cy??S.py)+Math.sin(ang)*r,
-    hp:hp, maxhp:hp, atk:(isBoss?area.atk:z.matk)*(opt.atkMul||1), exp:z.exp*(isBoss?20:1), zen:z.zen*(isBoss?18:1),
-    r:isBoss?46:16, boss:isBoss, areaBoss:isBoss, hitCd:0, col:isBoss?area.col:z.mcol, acc:isBoss?area.acc:null, shape:isBoss?area.shape:null, name:isBoss?area.name:null, bossId:isBoss?area.id:null, wob:Math.random()*6.28,
-    kind: isBoss?'boss':kinds[(Math.random()*kinds.length)|0], minion:!!opt.minion
+    hp:hp, maxhp:hp, atk:(isBoss?area.atk*2:z.matk)*(isBoss?1:fieldAtkMul)*(opt.atkMul||1), exp:z.exp*(isBoss?20:1)*(1+fieldOver*.08), zen:z.zen*(isBoss?18:1),
+    r:isBoss?46:16, reach, boss:isBoss, areaBoss:isBoss, hitCd:0, actCd:28+Math.random()*70, dash:0, tele:0, orbit:Math.random()*6.28, col:isBoss?area.col:z.mcol, acc:isBoss?area.acc:null, shape:isBoss?area.shape:null, name:isBoss?area.name:null, bossId:isBoss?area.id:null, wob:Math.random()*6.28,
+    kind, minion:!!opt.minion, motion:Math.random()*6.28, attackAnim:0
   });
   if(isBoss){ flash('AREA BOSS',area.acc,area.name+' が現れた！'); if(window.AU)AU.bossRoar(); }
   if(window.AU && Math.random()<0.35) AU.cry(monsters[monsters.length-1].kind,false);
@@ -652,6 +749,7 @@ document.getElementById('mStat').onclick=()=>openPanel('statPanel');
 document.getElementById('mChaos').onclick=()=>openPanel('chaosPanel');
 document.getElementById('mAcc').onclick=()=>openPanel('gearPanel');
 document.getElementById('mGear').onclick=()=>openPanel('gearPanel');
+document.getElementById('mTown').onclick=()=>{ if(S.inDungeon){toast('攻略中は町へ戻れない');return;} refreshTown(); openPanel('townPanel'); };
 document.getElementById('mDun').onclick=()=>{ if(S.inDungeon){ toast('攻略中はダンジョンを選べない'); return; } openPanel('dungeonPanel'); };
 document.getElementById('mExit').onclick=()=>{ if(S.inDungeon){ flash('RETREAT','#e08a3b','撤退した'); exitDungeon(); } };
 document.getElementById('mSound').onclick=()=>AU.toggle();
@@ -689,15 +787,41 @@ function refreshDungeon(){
     +'<div style="text-align:center"><button class="gbtn" id="bloodBtn" style="padding:9px 26px;background:linear-gradient(180deg,#7a1020,#3a0810);border-color:#a03040;color:#ffc8c8">🩸 挑戦する</button></div>';
   el.appendChild(bc);
   bc.querySelector('#bloodBtn').onclick=()=>enterBlood();
-  BOSSES.forEach((cfg,i)=>{ const ok=S.lv>=cfg.minLv; const rar0=SETS[cfg.rewardRar[0]], rar1=SETS[cfg.rewardRar[1]];
+  const cc=document.createElement('div'); cc.className='card';
+  cc.innerHTML='<div class="row"><span class="v" style="color:#c98cff;font-size:14px">🌀 カオスキャッスル</span></div>'
+    +'<div class="small" style="margin:2px 0 6px;line-height:1.6">90秒の崩壊する城で、生き残った敵を殲滅せよ。終了時の討伐数で<b style="color:#ffd24a">ボス装備</b>を獲得。</div>'
+    +'<div style="text-align:center"><button class="gbtn" id="chaosCastleBtn" style="padding:9px 26px;background:linear-gradient(180deg,#4b276c,#241134);border-color:#a66be0">🌀 入城する</button></div>';
+  el.appendChild(cc);
+  cc.querySelector('#chaosCastleBtn').onclick=()=>enterChaosCastle();
+  BOSSES.forEach((cfg,i)=>{ const rar0=SETS[cfg.rewardRar[0]], rar1=SETS[cfg.rewardRar[1]];
     const c=document.createElement('div'); c.className='card';
     c.innerHTML='<div class="row"><span class="v" style="color:'+cfg.acc+';font-size:14px">☠ '+cfg.name+'</span></div>'
-      +'<div class="row"><span class="k">推奨</span><span class="v">Lv.'+cfg.minLv+' 以上</span></div>'
+      +'<div class="row"><span class="k">基準Lv.</span><span class="v">'+cfg.minLv+'（いつでも挑戦可）</span></div>'
+      +'<div class="row"><span class="k">敵Lv.</span><input class="chaosSelect" data-dun-lv="'+i+'" type="number" min="1" max="999" value="'+Math.max(1,S.lv)+'" style="width:86px;padding:5px 7px"></div>'
       +'<div class="row"><span class="k">報酬レア</span><span class="v" style="font-size:12px"><span style="color:'+rar0.col+'">'+rar0.rname+'</span>〜<span style="color:'+rar1.col+'">'+rar1.rname+'</span></span></div>'
-      +'<div style="text-align:center;margin-top:6px"><button class="gbtn'+(ok?'':' ')+'" data-dun="'+i+'" '+(ok?'':'disabled')+' style="padding:9px 26px">'+(ok?'⚔ 挑戦する':'🔒 Lv不足')+'</button></div>';
+      +'<div style="text-align:center;margin-top:6px"><button class="gbtn" data-dun="'+i+'" style="padding:9px 26px">⚔ 挑戦する</button></div>';
     el.appendChild(c);
   });
-  el.querySelectorAll('[data-dun]').forEach(b=>b.onclick=()=>enterDungeon(+b.dataset.dun));
+  el.querySelectorAll('[data-dun]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.dun, input=el.querySelector('[data-dun-lv="'+i+'"]'); enterDungeon(i,Math.max(1,Math.min(999,Math.floor(+input.value||1)))); });
+}
+function refreshTown(){
+  const tale=S.lv<6?'草原に落ちた黒い流星を追い、あなたはロレンシアを旅立った。妖精ルミナは、失われた城の鍵が五つの地に散ったと囁く。'
+    :S.lv<14?'ノリアの樹々は枯れ、魔物は北の洞窟へと逃げ込んでいる。休息所の灯火が、次の戦いへ向かうあなたを温める。'
+    :S.lv<30?'洞窟の奥で、城門を開く「混沌の欠片」が見つかった。だが深海の向こうには、まだ名も知らぬ敵が待つ。'
+    :'五つの鍵は揃いつつある。いずれギルドの旗を掲げ、失われた城を奪還する日が来る。';
+  document.getElementById('townStory').textContent=tale;
+  document.getElementById('restBtn').onclick=()=>{ S.hp=S.maxhp; S.pots=Math.max(S.pots,3); saveGame(); updateHUD(); toast('🍵 心身を整えた。HP全回復・回復薬を補充'); };
+  const blessing=seraphyActive();
+  document.getElementById('seraphyInfo').textContent=blessing?'祝福中：残り約'+seraphyLeftText()+'分　全ステータス+18':'10分間、力・敏捷・知力・体力を+18。強化が追いつかない時の支えになる。';
+  document.getElementById('seraphyBtn').textContent=blessing?'🍀 祝福を延長する（10分）':'🍀 緑の祝福を受ける';
+  document.getElementById('seraphyBtn').onclick=()=>{ const was=seraphyActive(); S.seraphyUntil=Date.now()+10*60*1000; recalcHp(); S.hp=S.maxhp; saveGame(); updateHUD(); refreshTown(); toast(was?'🍀 セラフィーの祝福を延長した':'🍀 セラフィーの祝福を受けた。10分間 全ステータス+18'); };
+  const warp=document.getElementById('zoneWarpList');
+  warp.innerHTML=ZONES.map((z,i)=>'<div class="row" style="border-top:1px dashed #3a3024"><span><b style="color:'+(i===S.zoneIdx?'#ffd24a':'#d8c79a')+'">'+(i===S.zoneIdx?'◆ ':'')+z.name+'</b><br><small class="small">推奨 Lv.'+z.minLv+(S.lv<z.minLv?' / 未到達':'')+'</small></span><button class="gbtn" data-warp="'+i+'" '+(S.lv<z.minLv||i===S.zoneIdx?'disabled':'')+' style="padding:6px 10px;font-size:11px">'+(i===S.zoneIdx?'滞在中':'移動')+'</button></div>').join('');
+  warp.querySelectorAll('[data-warp]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.warp; if(i===S.zoneIdx||S.lv<ZONES[i].minLv)return; S.zoneIdx=i; monsters=[]; drops=[]; areaBossTimer=360; rivalTimer=1800; for(let n=0;n<5;n++)spawnMonster(); AU.warp(); saveGame(); updateHUD(); document.getElementById('townPanel').classList.remove('show'); toast('🌀 '+ZONES[i].name+'へ転送した'); });
+  const hired=mercActive(), mi=document.getElementById('mercInfo'), ml=document.getElementById('mercHireList');
+  mi.textContent=hired?'同行中：'+MERCS[S.merc.type].name+'　HP '+Math.ceil(S.merc.hp)+' / '+S.merc.maxhp:'金貨で契約。傭兵が倒れた場合、町へ戻るまで再雇用できません。';
+  ml.innerHTML=Object.entries(MERCS).map(([id,m])=>'<div class="row" style="border-top:1px dashed #3a3024"><span><b style="color:'+m.col+'">'+m.icon+' '+m.name+'</b><br><small class="small">'+m.desc+' / HP '+m.maxhp+'</small></span><button class="gbtn" data-hire="'+id+'" '+(hired?'disabled':'')+' style="padding:6px 9px;font-size:11px">💰'+m.price+'</button></div>').join('');
+  ml.querySelectorAll('[data-hire]').forEach(b=>b.onclick=()=>{ const type=b.dataset.hire,m=MERCS[type]; if(mercActive())return; if(S.zen<m.price){toast('Zenが足りない');return;} S.zen-=m.price; S.merc={type,hp:m.maxhp,maxhp:m.maxhp,x:S.px-42,y:S.py+22,atkCd:0,healCd:0,hitCd:0}; saveGame(); refreshTown(); updateHUD(); toast(m.icon+' '+m.name+' を雇用した！'); });
 }
 
 // stat spend
@@ -782,6 +906,7 @@ document.getElementById('doWing').onclick=()=>{
 // ---------- gear equip / sell ----------
 function equipFromInv(idx){
   const g=ensureGearItem(S.inv[idx],0); if(!g) return;
+  if(!canUseGear(g)){ toast('必要ステータス不足：'+gearReqText(g)); return; }
   S.inv.splice(idx,1);
   const cur=S.gear[g.slot];
   S.gear[g.slot]=g;
@@ -824,8 +949,9 @@ function refreshGear(){
     const isW=g.slot==='weapon'; const ic=isW?(WTYPE_BY_ID[g.wtype]||WTYPES[0]).icon:sl.icon;
     const enh=gearEnh(g), stat=gearStatText(g);
     const row=document.createElement('div'); row.className='row'; row.style.borderBottom='1px dashed #2a2117';
-    row.innerHTML='<span style="font-size:12px;color:'+st.col+'">'+ic+' <b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+'</small></span>'
-      +'<span><button class="gbtn" data-eq="'+i+'" style="padding:5px 10px;font-size:11px">装備</button> '
+    const usable=canUseGear(g), req=gearReqText(g);
+    row.innerHTML='<span style="font-size:12px;color:'+st.col+'">'+ic+' <b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+' / 必要:'+req+'</small></span>'
+      +'<span><button class="gbtn" data-eq="'+i+'" style="padding:5px 10px;font-size:11px">'+(usable?'装備':'条件確認')+'</button> '
       +'<button class="gbtn" data-up-inv="'+g.uid+'" style="padding:5px 8px;font-size:11px">🔥</button> '
       +'<button class="gbtn" data-sell="'+i+'" style="padding:5px 8px;font-size:11px;background:linear-gradient(180deg,#5a2a2a,#2e0e0e);border-color:#8a4242;color:#ffc8c8">💰'+sellPrice(g)+'</button></span>';
     invEl.appendChild(row);
@@ -852,6 +978,7 @@ function refreshPanels(){
   document.getElementById('dAtk').textContent=atkCalc();
   document.getElementById('dDef').textContent=defCalc();
   document.getElementById('dCrit').textContent=Math.round(critCalc()*100)+'%';
+  document.getElementById('dAspd').textContent='+'+Math.round((attackSpeed()-1)*100)+'%';
   document.getElementById('dWep').textContent='+'+totalGearEnh();
   document.getElementById('dWing').textContent=Object.values(S.gear).filter(g=>g&&isAccessorySlot(g.slot)).length+' / 3';
   document.getElementById('dCP').textContent=cpCalc();
@@ -924,10 +1051,11 @@ function gainExp(n){
   S.exp+=n;
   while(S.exp>=S.expNext){
     S.exp-=S.expNext; S.lv++; S.statPts+=5;
-    S.expNext=Math.floor(S.expNext*1.35+15);
+    // The early game is brisk; after Lv.30 the curve becomes deliberately gentler.
+    S.expNext=Math.floor(S.expNext*(S.lv>=30?1.18:1.35)+(S.lv>=30?28:15));
     S.maxhp=maxHpCalc(); S.hp=S.maxhp;
-    // zone advance
-    for(let i=ZONES.length-1;i>=0;i--){ if(S.lv>=ZONES[i].minLv){ if(i>S.zoneIdx){S.zoneIdx=i; toast('🗺 '+ZONES[i].name+'へ進出！');} break; } }
+    // Areas unlock with level, but travel is always a player choice at the town gate.
+    const unlocked=ZONES.find(z=>z.minLv===S.lv); if(unlocked)toast('🌀 '+unlocked.name+' が転送門に追加された');
     flash('LEVEL UP','#3fa9e0','Lv.'+S.lv+'　ステ+5'); AU.level();
   }
   updateHUD();
@@ -956,9 +1084,9 @@ function killReward(m){
   if(Math.random()<(m.boss?0.9:0.004)) dropJewel(m,'jc');
   if(Math.random()<(m.boss?0.6:0.0027)) dropJewel(m,'ch');
   if(Math.random()<(m.boss?0.8:0.01)) dropJewel(m,'pot');
-  // gear drops — boss always drops 1-2, normal mob small chance
+  // Gear is deliberately a boss reward. Normal monsters only have a near-zero lucky drop.
   if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); }
-  else if(Math.random()<0.015) dropGear(m);
+  else if(Math.random()<0.0008) dropGear(m);
   if(m.boss) flash('BOSS KILL','#ff6bd0','大物を討伐！');
   checkAch();
 }
@@ -981,8 +1109,12 @@ const INV_MAX=24;
 function pickupGear(g){
   ensureGearItem(g,0);
   CODEX.setsSeen[g.set]=true; checkAch();
+  // One copy of each set/slot is enough now that weapon types have no traits.
+  // A repeat turns into immediate Zen instead of silently filling the bag.
+  const duplicate=(S.gear[g.slot]&&S.gear[g.slot].set===g.set)||S.inv.some(x=>x.slot===g.slot&&x.set===g.set);
+  if(duplicate){ const p=sellPrice(g); S.zen+=p; addFct(S.px,S.py-34,'重複売却 +'+p,'#ffd24a'); toast('💰 '+gearName(g)+' は重複のため自動売却'); updateHUD(); return; }
   // auto-equip if slot empty, else send to inventory
-  if(!S.gear[g.slot]){ S.gear[g.slot]=g; syncLegacyWep(); recalcHp(); flash('EQUIP',SET_BY_ID[g.set].col,gearName(g)+' を装備！'); }
+  if(!S.gear[g.slot] && canUseGear(g)){ S.gear[g.slot]=g; syncLegacyWep(); recalcHp(); flash('EQUIP',SET_BY_ID[g.set].col,gearName(g)+' を装備！'); }
   else {
     if(S.inv.length>=INV_MAX){ // auto-sell weakest to make room
       S.inv.sort((a,b)=>(a.rar-b.rar)||(gearEnh(a)-gearEnh(b))||(a.def-b.def)); const junk=S.inv.shift(); S.zen+=sellPrice(junk);
@@ -1016,34 +1148,37 @@ const BOSSES=[
 let D=null;
 function beginDungeonExit(){
   if(!S.inDungeon||!D||D.ending)return;
-  D.ending=true; D.exitIn=0; D.waves=[]; D.boss=null; D.relic=null;
-  monsters=[]; drops=[]; slashes=[]; atkAnim=null; atkHeld=false;
+  // Do not leave a half-cleared dungeon state around after the boss disappears.
+  // This was the source of the post-boss soft-lock on some phones.
+  D.ending=true; D.waves=[]; D.boss=null; D.relic=null;
+  exitDungeon();
 }
-function enterDungeon(bi){
-  const cfg=BOSSES[bi]; if(S.lv<cfg.minLv){ toast('Lv.'+cfg.minLv+'以上で挑戦可能'); return; }
+function enterDungeon(bi,targetLv){
+  const cfg=BOSSES[bi]; targetLv=Math.max(1,Math.floor(targetLv||S.lv));
   document.getElementById('dungeonPanel').classList.remove('show');
   S.inDungeon=true; S.dunIdx=bi; monsters=[]; drops=[];
-  D={cx:S.px,cy:S.py,radius:300,waves:[],boss:null,pAtkCd:0,cleared:false};
+  const delta=targetLv-cfg.minLv, scale=Math.max(.55,Math.pow(1.155,delta));
+  D={cx:S.px,cy:S.py,radius:300,waves:[],boss:null,pAtkCd:0,cleared:false,level:targetLv,scale};
   S.px=D.cx; S.py=D.cy-150;
-  const hp=cfg.hp*(0.9+Math.random()*0.2);
-  D.boss={x:D.cx,y:D.cy+50,hp,maxhp:hp,atk:cfg.atk,r:42,name:cfg.name,col:cfg.col,acc:cfg.acc,shape:cfg.shape,
-          hitCd:0,castCd:130,summonCd:320,cast:0,wob:0,rewardRar:cfg.rewardRar};
+  const hp=cfg.hp*3*scale*(0.9+Math.random()*0.2);
+  D.boss={x:D.cx,y:D.cy+50,hp,maxhp:hp,atk:cfg.atk*2*Math.max(.7,Math.pow(1.075,delta)),r:42,name:cfg.name,col:cfg.col,acc:cfg.acc,shape:cfg.shape,
+          hitCd:0,castCd:130,summonCd:320,cast:0,wob:0,motion:0,attackAnim:0,rewardRar:cfg.rewardRar};
   document.getElementById('mExit').style.display='flex';
-  flash('DUNGEON','#ff6bd0',cfg.name+' が立ちはだかる！'); AU.bossRoar(); updateHUD();
+  flash('DUNGEON','#ff6bd0',cfg.name+' Lv.'+targetLv+' が立ちはだかる！'); AU.bossRoar(); updateHUD();
 }
 function exitDungeon(){
   if(!S.inDungeon&&!D)return;
-  S.inDungeon=false; D=null; monsters=[]; drops=[]; slashes=[]; atkAnim=null; atkHeld=false; autoAtkCd=0; meleeCd=0;
+  S.inDungeon=false; D=null; monsters=[]; drops=[]; slashes=[]; enemyFx=[]; atkAnim=null; atkHeld=false; autoAtkCd=0; meleeCd=0;
   document.getElementById('mExit').style.display='none';
   for(let i=0;i<5;i++)spawnMonster();
   saveGame(); updateHUD();
 }
 function bossDefeated(){
   if(D.cleared) return; D.cleared=true;
-  const b=D.boss, rr=b.rewardRar;
+  const b=D.boss, rr=b.rewardRar, runLv=D.level||S.lv, rewardScale=1+Math.max(0,runLv-S.lv)*.04;
   CODEX.bosses[BOSSES[S.dunIdx].id]=true; checkAch(); saveGame();
-  gainExp(ZONES[Math.min(ZONES.length-1,S.dunIdx)].exp*45);
-  S.zen+=2500*(S.dunIdx+1); S.jb+=6+S.dunIdx*3; S.js+=6+S.dunIdx*3; S.jc+=1+S.dunIdx; S.charm+=1+(S.dunIdx>2?1:0);
+  gainExp(Math.floor(ZONES[Math.min(ZONES.length-1,S.dunIdx)].exp*45*rewardScale));
+  S.zen+=Math.floor(2500*(S.dunIdx+1)*rewardScale); S.jb+=Math.floor((6+S.dunIdx*3)*rewardScale); S.js+=Math.floor((6+S.dunIdx*3)*rewardScale); S.jc+=1+S.dunIdx; S.charm+=1+(S.dunIdx>2?1:0);
   const n=2+(Math.random()<0.55?1:0);
   for(let i=0;i<n;i++){ const rar=Math.min(SETS.length-1, rr[0]+((Math.random()*(rr[1]-rr[0]+1))|0)); const st=SETS[rar];
     const slot=SLOTS[(Math.random()*SLOTS.length)|0]; const def=Math.round(st.baseDef*slot.mul*(1.0+Math.random()*0.3));
@@ -1057,9 +1192,10 @@ function damageBossRanged(mul){ mul=mul||1; if(!S.inDungeon||!D) return; const t
 function dungeonUpdate(dt){
   if(D.ending)return;
   if(D.devil){ devilUpdate(dt); return; }
+  if(D.chaos){ chaosCastleUpdate(dt); return; }
   if(D.mode==='blood'){ bloodUpdate(dt); return; }
   const b=D.boss; if(!b) return;
-  b.wob+=0.04*dt;
+  b.wob+=0.04*dt; b.motion=(b.motion||0)+dt*.13; b.attackAnim=Math.max(0,(b.attackAnim||0)-dt*.045);
   // phase 2: enrage below 50% HP
   if(!b.enraged && b.hp<b.maxhp*0.5){ b.enraged=true; b.r+=6; flash('ENRAGE','#ff2a2a',b.name+' が発狂した！'); AU.bossRoar(); }
   const dx=S.px-b.x, dy=S.py-b.y, d=Math.hypot(dx,dy)||1;
@@ -1068,7 +1204,7 @@ function dungeonUpdate(dt){
   const bd=Math.hypot(b.x-D.cx,b.y-D.cy); if(bd>D.radius-50){ b.x=D.cx+(b.x-D.cx)/bd*(D.radius-50); b.y=D.cy+(b.y-D.cy)/bd*(D.radius-50); }
   // boss melee
   b.hitCd-=dt;
-  if(d<b.r+30 && b.hitCd<=0){ const dmg=Math.max(1,Math.floor(b.atk-defCalc()*0.4)); S.hp-=dmg; markHeroHit(b.x); addFct(S.px,S.py-32,'-'+dmg,'#ff7a7a'); b.hitCd=46; if(S.hp<=0){playerDie();return;} }
+  if(d<b.r+30 && b.hitCd<=0){ const dmg=Math.max(1,Math.floor(b.atk-defCalc()*0.4)); b.attackAnim=1; S.hp-=dmg; markHeroHit(b.x); addFct(S.px,S.py-32,'-'+dmg,'#ff7a7a'); b.hitCd=46; if(S.hp<=0){playerDie();return;} }
   // player auto-melee on boss
   D.pAtkCd-=dt;
   if(d<150 && D.pAtkCd<=0){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.8+Math.random()*0.3)*(crit?critMul():1)); b.hp-=dmg; addFct(b.x+(Math.random()*20-10),b.y-b.r-8,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); slashes.push({x:(S.px+b.x)/2,y:(S.py+b.y)/2,life:.7,r:40}); D.pAtkCd=20; }
@@ -1077,7 +1213,7 @@ function dungeonUpdate(dt){
   if(b.castCd<=0){ const spd=(3.0+S.dunIdx*0.4)*(b.enraged?1.4:1);
     D.waves.push({x:b.x,y:b.y,r:0,max:D.radius*1.2,spd,tele:b.enraged?34:48,hit:false});
     if(b.enraged) D.waves.push({x:b.x,y:b.y,r:-D.radius*0.4,max:D.radius*1.2,spd,tele:34,hit:false});
-    b.castCd=(b.enraged?90:150)+Math.random()*60; b.cast=0.85; AU.cast(); }
+    b.castCd=(b.enraged?90:150)+Math.random()*60; b.cast=0.85; b.attackAnim=1; AU.cast(); }
   if(b.cast>0) b.cast=Math.max(0,b.cast-dt*0.02);
   // summon adds (enraged summons more)
   b.summonCd-=dt;
@@ -1127,14 +1263,50 @@ function endDevil(){
   beginDungeonExit(96);
 }
 
+// ---------- chaos castle (collapsing arena survival) ----------
+const CHAOS_SECS=90;
+function enterChaosCastle(){
+  if(!S.running) return;
+  document.getElementById('dungeonPanel').classList.remove('show');
+  S.inDungeon=true; S.dunIdx=S.zoneIdx; monsters=[]; drops=[];
+  D={cx:S.px,cy:S.py,radius:310,waves:[],boss:null,chaos:true,timeLeft:CHAOS_SECS*60,kills:0,spawnCd:0,pAtkCd:0,cleared:false};
+  S.px=D.cx; S.py=D.cy;
+  document.getElementById('mExit').style.display='flex';
+  flash('CHAOS CASTLE','#c98cff','崩壊が始まる。90秒、生き残れ！'); AU.bossRoar(); updateHUD();
+}
+function chaosCastleUpdate(dt){
+  D.timeLeft-=dt;
+  const prog=Math.min(1,1-D.timeLeft/(CHAOS_SECS*60));
+  D.radius=Math.max(145,310-prog*150);
+  D.spawnCd-=dt;
+  if(D.spawnCd<=0 && monsters.length<16){
+    const n=1+(Math.random()<.55+prog*.35?1:0);
+    for(let i=0;i<n;i++) spawnMonster({cx:D.cx,cy:D.cy,r:Math.max(70,D.radius-25),hpMul:1.05+prog*1.45,atkMul:1+prog*.75});
+    D.spawnCd=Math.max(6,23-prog*15);
+  }
+  // the collapsing edge burns the player outside the safe ring
+  const dist=Math.hypot(S.px-D.cx,S.py-D.cy);
+  if(dist>D.radius-24){ S.hp-=Math.max(1,Math.floor(2+prog*7))*dt*.06; if(S.hp<=0){playerDie();return;} }
+  if(D.timeLeft<=0) endChaosCastle();
+}
+function endChaosCastle(){
+  if(D.cleared)return; D.cleared=true;
+  const k=D.kills,tier=Math.min(SETS.length-1,S.zoneIdx+1),gearN=Math.max(1,Math.floor(k/14));
+  S.zen+=k*120*(S.zoneIdx+1); S.jb+=Math.floor(k/3); S.js+=Math.floor(k/4); S.jc+=Math.floor(k/18)+1;
+  for(let i=0;i<gearN;i++) pickupGear(rollGearPiece(tier,true));
+  CODEX.chaosBest=Math.max(CODEX.chaosBest||0,k); checkAch(); saveGame();
+  flash('CHAOS SURVIVED','#ffd24a',k+'体 討伐！ 城から離脱した'); AU.clear();
+  beginDungeonExit();
+}
+
 // ---------- rival PK invasion ----------
 const RIVAL_NAMES=['黒騎士ヴァロウ','流浪のPKカイン','戦鬼ゴルド','亡霊剣士セラ','簒奪者ディーン','処刑人モルガ'];
 function spawnRival(){
   const z=ZONES[S.zoneIdx]; const ang=Math.random()*6.28, r=360;
   const hp=z.mhp*5*(1+S.lv*0.05);
   monsters.push({ x:S.px+Math.cos(ang)*r, y:S.py+Math.sin(ang)*r, hp, maxhp:hp,
-    atk:z.matk*1.7, exp:z.exp*8, zen:z.zen*12, r:18, boss:false, rival:true,
-    rname:RIVAL_NAMES[(Math.random()*RIVAL_NAMES.length)|0], hitCd:0, col:'#2e2440', wob:Math.random()*6.28, kind:'rival', minion:false });
+    atk:z.matk*1.7, exp:z.exp*8, zen:z.zen*12, r:18, reach:120, boss:false, rival:true, actCd:40, dash:0, tele:0,
+    rname:RIVAL_NAMES[(Math.random()*RIVAL_NAMES.length)|0], hitCd:0, col:'#2e2440', wob:Math.random()*6.28, motion:Math.random()*6.28, attackAnim:0, kind:'rival', minion:false });
   flash('PK INVASION','#ff3b3b','乱入者が現れた！'); if(window.AU)AU.bossRoar();
 }
 
@@ -1181,6 +1353,8 @@ function loop(ts){
   update(dt); render(); requestAnimationFrame(loop);
 }
 function update(dt){
+  const blessed=seraphyActive();
+  if(blessed!==seraphyPrev){ seraphyPrev=blessed; recalcHp(); if(!blessed)toast('🍀 セラフィーの祝福が消えた'); }
   const motionStartX=S.px, motionStartY=S.py;
   // move
   const sp=(3.4+S.agi*0.02)*dt;
@@ -1198,8 +1372,20 @@ function update(dt){
     }
     if(tx!==null){ const dx=tx-S.px,dy=ty-S.py,d=Math.hypot(dx,dy)||1;
       if(d>62){ S.px+=dx/d*sp; S.py+=dy/d*sp; if(Math.abs(dx)>4)S.facing=dx>0?1:-1; }
-      autoAtkCd-=dt; if(autoAtkCd<=0){ aoeAttack(); autoAtkCd=14; }
+      autoAtkCd-=dt; if(autoAtkCd<=0){ aoeAttack(); autoAtkCd=attackCooldown(42); }
     }
+  }
+  // hired mercenary: follows, fights from range, and can be killed permanently for this expedition
+  if(mercActive()){
+    const q=S.merc, def=MERCS[q.type], fx=S.px-46, fy=S.py+25, fd=Math.hypot(fx-q.x,fy-q.y)||1;
+    if(fd>18){ q.x+=(fx-q.x)/fd*Math.min(fd,2.5*dt); q.y+=(fy-q.y)/fd*Math.min(fd,2.5*dt); }
+    q.atkCd-=dt; q.healCd-=dt;
+    let target=null,near=1e9; for(const m of monsters){const d=Math.hypot(m.x-q.x,m.y-q.y);if(d<near){near=d;target=m;}}
+    if(q.type==='healer'&&q.healCd<=0){
+      if(S.hp<S.maxhp*.78||q.hp<q.maxhp*.55){ const heal=Math.floor(S.maxhp*.22); S.hp=Math.min(S.maxhp,S.hp+heal); q.hp=Math.min(q.maxhp,q.hp+Math.floor(q.maxhp*.16)); q.healCd=155; burst(S.px,S.py,'#9dffb0',10,1.7); AU.heal(); addFct(S.px,S.py-45,'+ '+heal,'#9dffb0'); }
+      else { S.mercBlessUntil=Date.now()+9000; q.healCd=210; burst(S.px,S.py,'#ffd6f4',10,1.5); AU.bless(); addFct(S.px,S.py-45,'祝福：攻+16% 防+12%','#ffd6f4'); }
+    }
+    if(q.type!=='healer'&&target&&q.atkCd<=0&&near<230){ const dmg=q.type==='mage'?Math.floor(atkCalc()*.48+18):Math.floor(atkCalc()*.38+14); target.hp-=dmg; q.atkCd=q.type==='archer'?30:48; enemyFx.push({x:q.x,y:q.y,tx:target.x,ty:target.y,life:1,type:q.type==='archer'?'allyArrow':'allyBolt',col:def.col}); addFct(target.x,target.y-target.r-8,dmg,def.col); }
   }
   // dungeon: clamp player to arena + run boss logic
   if(S.inDungeon && D){
@@ -1224,13 +1410,13 @@ function update(dt){
   combo.timer-=dt;
   if(atkAnim){ atkAnim.life-=dt*0.085; if(atkAnim.life<=0) atkAnim=null; }
   // auto attack hold
-  atkAutoCd-=dt; if(atkHeld && atkAutoCd<=0){ aoeAttack(); atkAutoCd=11; }
+  atkAutoCd-=dt; if(atkHeld && atkAutoCd<=0){ aoeAttack(); atkAutoCd=attackCooldown(42); }
   // passive auto-attack nearest in melee
   meleeCd-=dt;
   if(meleeCd<=0){
     let near=null,nd=70+weaponInfo().range*0.6;
     for(const m of monsters){ const d=Math.hypot(m.x-S.px,m.y-S.py)-m.r; if(d<nd){nd=d;near=m;} }
-    if(near){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.7+Math.random()*0.25)*(crit?critMul():1)); near.hp-=dmg; addFct(near.x,near.y-near.r-6,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); slashes.push({x:(S.px+near.x)/2,y:(S.py+near.y)/2,life:.7,r:34}); if(Math.abs(near.x-S.px)>4)S.facing=near.x>S.px?1:-1; if(!atkAnim)atkAnim={life:1,step:3,kind:S.gear.weapon?S.gear.weapon.wtype:'sword'}; meleeCd=24; }
+    if(near){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.7+Math.random()*0.25)*(crit?critMul():1)); near.hp-=dmg; addFct(near.x,near.y-near.r-6,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); slashes.push({x:(S.px+near.x)/2,y:(S.py+near.y)/2,life:.7,r:34}); if(Math.abs(near.x-S.px)>4)S.facing=near.x>S.px?1:-1; if(!atkAnim)atkAnim={life:1,step:3,kind:S.gear.weapon?S.gear.weapon.wtype:'sword'}; meleeCd=attackCooldown(42); }
   }
   // spawn (field only)
   if(!S.inDungeon && monsters.length<10){ spawnTimer-=dt; if(spawnTimer<=0){ spawnMonster(); spawnTimer=14+Math.random()*22; } }
@@ -1247,14 +1433,40 @@ function update(dt){
   // monsters AI
   for(const m of monsters){
     m.wob+=0.05*dt;
+    m.motion=(m.motion||0)+dt*(m.dash>0?0.42:0.16); m.attackAnim=Math.max(0,(m.attackAnim||0)-dt*.055);
     const dx=S.px-m.x, dy=S.py-m.y, d=Math.hypot(dx,dy)||1;
-    const msp=(0.9+ (m.boss?0.3:0.0) + (m.rival?0.85:0))*dt;
-    if(d>m.r+22){ m.x+=dx/d*msp; m.y+=dy/d*msp; }
+    m.actCd=(m.actCd??42)-dt; m.dash=Math.max(0,(m.dash||0)-dt); m.tele=Math.max(0,(m.tele||0)-dt);
+    const fast=m.kind==='wolf'||m.kind==='bat'||m.kind==='fish';
+    const ranged=m.kind==='imp'||m.kind==='skeleton';
+    // Every creature uses a recognizable behaviour: circles, retreats, or telegraphed lunges.
+    if(m.tele>0){
+      // stop briefly before a lunge so players can read the attack
+    } else if(m.dash>0){
+      m.x+=dx/d*(m.boss?5.1:4.2)*dt; m.y+=dy/d*(m.boss?5.1:4.2)*dt;
+    } else {
+      let msp=(0.9+(m.boss?0.3:0)+(m.rival?0.85:0)+(fast?0.38:0))*dt;
+      // Hold just inside the usable range; the previous value left enemies outside their hit check.
+      const desired=Math.max(m.r+10,(m.reach|| (ranged?118:m.r+22))-9);
+      if(d>desired+12){ m.x+=dx/d*msp; m.y+=dy/d*msp; }
+      else if(ranged && d<82){ m.x-=dx/d*msp*.8; m.y-=dy/d*msp*.8; }
+      else if(fast || m.rival){ const side=Math.sin(m.orbit)*msp*.55; m.x+=-dy/d*side; m.y+=dx/d*side; m.orbit+=dt*.055; }
+      if(m.actCd<=0 && d<(m.boss?230:170)){
+        const chargeChance=m.boss?.72:(fast?.5:.22);
+        if(Math.random()<chargeChance){ m.tele=m.boss?26:16; m.dash=m.boss?25:15; m.actCd=m.boss?120+Math.random()*70:75+Math.random()*80; }
+        else { m.actCd=52+Math.random()*70; }
+      }
+    }
     m.hitCd-=dt;
-    if(d<m.r+26 && m.hitCd<=0){
-      const dmg=Math.max(1,Math.floor(m.atk*(0.85+Math.random()*0.35) - defCalc()*0.35));
-      S.hp-=dmg; markHeroHit(m.x); addFct(S.px,S.py-32,'-'+dmg,'#ff7a7a'); m.hitCd=m.rival?26:36; AU.hurt(); if(Math.random()<0.3)AU.cry(m.kind,false);
-      if(S.hp<=0){ playerDie(); }
+    const mercInRange=mercActive()&&Math.hypot(S.merc.x-m.x,S.merc.y-m.y)<(m.reach||m.r+26)+12;
+    if((d<(m.reach||m.r+26)+12+(m.dash>0?10:0)||mercInRange) && m.hitCd<=0){
+      const dmg=Math.max(1,Math.floor(m.atk*(0.85+Math.random()*0.35)*(m.dash>0?1.45:1) - defCalc()*0.35)); m.attackAnim=1;
+      const fxType=m.areaBoss?'boss':m.rival?'rival':ranged?'bolt':'slash';
+      const hitMerc=mercInRange&&Math.random()<.32;
+      const tx=hitMerc?S.merc.x:S.px, ty=hitMerc?S.merc.y:S.py;
+      enemyFx.push({x:m.x,y:m.y,tx,ty,life:1,type:fxType,col:m.acc||m.col});
+      if(hitMerc){ S.merc.hp-=dmg; addFct(S.merc.x,S.merc.y-26,'-'+dmg,'#ff9aa2'); if(S.merc.hp<=0){toast('💀 '+MERCS[S.merc.type].name+' が倒れた。町で再雇用できる'); S.merc=null;} }
+      else { S.hp-=dmg; markHeroHit(m.x); addFct(S.px,S.py-32,'-'+dmg,'#ff7a7a'); if(S.hp<=0){ playerDie(); } }
+      m.hitCd=m.rival?30:(m.areaBoss?42:36); AU.enemyAttack(m.kind,m.areaBoss,m.rival); AU.hurt(); if(Math.random()<0.3)AU.cry(m.kind,false);
     }
   }
   // dead monsters
@@ -1282,12 +1494,13 @@ function update(dt){
   // fct
   for(let i=fcts.length-1;i>=0;i--){ const f=fcts[i]; f.y+=f.vy*dt; f.life-=dt*0.03; if(f.life<=0)fcts.splice(i,1); }
   for(let i=slashes.length-1;i>=0;i--){ slashes[i].life-=dt*0.08; if(slashes[i].life<=0)slashes.splice(i,1); }
+  for(let i=enemyFx.length-1;i>=0;i--){ enemyFx[i].life-=dt*.075; if(enemyFx[i].life<=0)enemyFx.splice(i,1); }
   for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=0.06*dt; p.life-=dt*0.035; if(p.life<=0)parts.splice(i,1); }
   // regen (very small now — survival depends on potions)
   if(S.hp<S.maxhp) S.hp=Math.min(S.maxhp,S.hp+0.012*dt);
   updateHUDthrottle(dt);
 }
-let meleeCd=0, spawnTimer=10, hudT=0, rivalTimer=1800, areaBossTimer=360;
+let meleeCd=0, spawnTimer=10, hudT=0, rivalTimer=1800, areaBossTimer=360, seraphyPrev=false;
 function updateHUDthrottle(dt){ hudT-=dt; if(hudT<=0){ document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%'; document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp; hudT=6; } }
 
 function playerDie(){
@@ -1575,8 +1788,9 @@ function drawDetailedCreature(kind,r,m){
   if(!monsterSheetReady||MONSTER_FRAME[kind]==null){ ctx.save(); ctx.scale(1.18,1.18); drawCreature(kind,r,m.col,m); ctx.restore(); return; }
   const frame=MONSTER_FRAME[kind], sw=monsterSheet.naturalWidth/3, sh=monsterSheet.naturalHeight/3;
   const sx=(frame%3)*sw, sy=Math.floor(frame/3)*sh, sz=creatureVisualSize(kind,r);
-  const face=(S.px>=m.x)?1:-1, pulse=1+Math.sin(m.wob*1.7)*.018;
-  ctx.save(); ctx.scale(face,pulse);
+  const face=(S.px>=m.x)?1:-1, pulse=1+Math.sin(m.wob*1.7)*.018, step=Math.sin(m.motion||m.wob), atk=m.attackAnim||0;
+  const lunge=Math.sin(Math.min(1,atk)*Math.PI)*r*.22;
+  ctx.save(); ctx.translate(face*lunge,-Math.abs(step)*Math.min(3,r*.1)); ctx.rotate(face*step*.025+face*atk*.09); ctx.scale(face,pulse*(1+atk*.05));
   if(m.rival){ctx.shadowColor='#d83242';ctx.shadowBlur=9;}
   if(m.boss){ctx.shadowColor='#ff6b34';ctx.shadowBlur=12;}
   ctx.drawImage(monsterSheet,sx,sy,sw,sh,-sz.w/2,-sz.h*.78,sz.w,sz.h);
@@ -1589,8 +1803,9 @@ function drawDetailedBoss(shape,r,b){
   if(!bossSheetReady||BOSS_FRAME[shape]==null){drawBossShape(shape,r,b.col,b.acc,b);return;}
   const frame=BOSS_FRAME[shape], sw=bossSheet.naturalWidth/3, sh=bossSheet.naturalHeight/2;
   const sx=(frame%3)*sw, sy=Math.floor(frame/3)*sh, base=BOSS_SIZE[shape], k=r/42;
-  const w=base[0]*k,h=base[1]*k, pulse=1+Math.sin(b.wob*1.4)*.012;
-  ctx.save(); ctx.scale(1,pulse); ctx.shadowColor=b.acc; ctx.shadowBlur=b.enraged?18:8;
+  const w=base[0]*k,h=base[1]*k, pulse=1+Math.sin(b.wob*1.4)*.012, step=Math.sin(b.motion||b.wob), atk=b.attackAnim||0;
+  const lunge=Math.sin(Math.min(1,atk)*Math.PI)*r*.18;
+  ctx.save(); ctx.translate(lunge,-Math.abs(step)*2); ctx.rotate(atk*.035+step*.008); ctx.scale(1,pulse*(1+atk*.035)); ctx.shadowColor=b.acc; ctx.shadowBlur=b.enraged?18:8;
   ctx.drawImage(bossSheet,sx,sy,sw,sh,-w/2,-h*.78,w,h);
   ctx.restore(); ctx.shadowBlur=0;
 }
@@ -1604,17 +1819,34 @@ function psxPoly(points,fill,stroke){
   ctx.closePath(); ctx.fill(); if(stroke)ctx.stroke();
 }
 function drawPSXGround(z,camx,camy){
-  const tile=96, ox=-((camx%tile)+tile)%tile, oy=-((camy%tile)+tile)%tile;
   ctx.fillStyle=shade(z.col,-20); ctx.fillRect(0,0,W,H);
-  for(let y=oy-tile;y<H+tile;y+=tile){
-    for(let x=ox-tile;x<W+tile;x+=tile){
-      const gx=Math.floor((x+camx)/tile), gy=Math.floor((y+camy)/tile);
-      const h=cellHash(gx,gy), c0=shade(z.col,(h-.5)*22), c1=shade(z.col,(h-.5)*22-13);
-      psxPoly([[x,y],[x+tile,y],[x+tile,y+tile]],c0);
-      psxPoly([[x,y],[x+tile,y+tile],[x,y+tile]],c1);
-      ctx.strokeStyle='rgba(5,8,9,.28)'; ctx.lineWidth=1;
-      ctx.strokeRect(x+.5,y+.5,tile-1,tile-1);
-    }
+  // overlapping organic ground patches replace the old square floor grid
+  const patch=82, ox=-((camx%patch)+patch)%patch, oy=-((camy%patch)+patch)%patch;
+  for(let y=oy-patch;y<H+patch;y+=patch) for(let x=ox-patch;x<W+patch;x+=patch){
+    const gx=Math.floor((x+camx)/patch), gy=Math.floor((y+camy)/patch), h=cellHash(gx,gy), rr=42+h*38;
+    ctx.fillStyle=shade(z.col,(h-.5)*18); ctx.globalAlpha=.26;
+    ctx.beginPath(); ctx.ellipse(x+patch*.5,y+patch*.5,rr,rr*(.46+h*.18),h*2.4,0,6.28); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  // Big zone-specific terrain layers: these read at a glance, beyond the low-poly floor.
+  const zi=S.zoneIdx, tt=performance.now()*.001;
+  if(zi===0){ // grassland: worn caravan road and rolling hills
+    for(const off of [-12,12]){ ctx.strokeStyle='rgba(104,78,42,.26)'; ctx.lineWidth=7; ctx.lineCap='round'; ctx.setLineDash([18,13]); ctx.beginPath();
+      ctx.moveTo(-50,H*.72+off); ctx.quadraticCurveTo(W*.32,H*.53+off,W*.58,H*.7+off); ctx.quadraticCurveTo(W*.82,H*.84+off,W+60,H*.56+off); ctx.stroke(); }
+    ctx.setLineDash([]);
+    ctx.fillStyle='rgba(20,62,28,.22)'; for(let i=0;i<5;i++){ const x=((i*231-camx*.12)% (W+240))-120; ctx.beginPath(); ctx.ellipse(x,H*.18+(i%2)*55,150,45,0,0,6.28); ctx.fill(); }
+  } else if(zi===1){ // forest: deep canopy shadows and roots
+    for(let i=0;i<7;i++){ const x=((i*167-camx*.08)%(W+170))-85, y=(i*83-camy*.06)%H; ctx.fillStyle='rgba(5,25,14,.24)'; ctx.beginPath(); ctx.arc(x,y,54+(i%3)*15,0,6.28); ctx.fill(); }
+    ctx.strokeStyle='rgba(88,62,35,.45)'; ctx.lineWidth=7; ctx.beginPath(); ctx.moveTo(-20,H*.58); ctx.quadraticCurveTo(W*.35,H*.43,W*.7,H*.63); ctx.lineTo(W+30,H*.48); ctx.stroke();
+  } else if(zi===2){ // cave: giant strata and a glowing underground fissure
+    ctx.strokeStyle='rgba(120,96,154,.28)'; ctx.lineWidth=18; for(let i=0;i<3;i++){ ctx.beginPath(); ctx.moveTo(-30,H*(.2+i*.28)); ctx.bezierCurveTo(W*.28,H*(.1+i*.3),W*.65,H*(.34+i*.24),W+30,H*(.18+i*.3)); ctx.stroke(); }
+    ctx.strokeStyle='rgba(151,90,214,'+(.22+.12*Math.sin(tt*2))+')'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(W*.1,0); ctx.lineTo(W*.27,H*.3); ctx.lineTo(W*.22,H*.58); ctx.lineTo(W*.42,H); ctx.stroke();
+  } else if(zi===3){ // trench: layered currents and deep-water shafts
+    for(let i=0;i<6;i++){ const y=(i*97+tt*16)%H; ctx.strokeStyle='rgba(82,174,204,.13)'; ctx.lineWidth=12; ctx.beginPath(); ctx.moveTo(-30,y); ctx.bezierCurveTo(W*.28,y-25,W*.62,y+28,W+30,y-12); ctx.stroke(); }
+    ctx.fillStyle='rgba(1,16,31,.25)'; ctx.beginPath(); ctx.ellipse(W*.7,H*.38,170,260,.35,0,6.28); ctx.fill();
+  } else { // volcano: broad lava rivers and soot ridges
+    ctx.fillStyle='rgba(18,8,7,.34)'; for(let i=0;i<4;i++){ ctx.beginPath(); ctx.ellipse(i*W*.32,H*.17+(i%2)*H*.5,190,68,-.22,0,6.28); ctx.fill(); }
+    ctx.strokeStyle='rgba(255,78,22,'+(.28+.12*Math.sin(tt*3))+')'; ctx.shadowColor='#ff4b18'; ctx.shadowBlur=12; ctx.lineWidth=7; ctx.beginPath(); ctx.moveTo(-20,H*.18); ctx.lineTo(W*.24,H*.37); ctx.lineTo(W*.48,H*.28); ctx.lineTo(W*.78,H*.7); ctx.lineTo(W+20,H*.84); ctx.stroke(); ctx.shadowBlur=0;
   }
   // 低ポリ床の大きな三角形ハイライト
   const sweep=((performance.now()*0.004)%220)-110;
@@ -1670,19 +1902,21 @@ function render(){
   const z=ZONES[S.zoneIdx];
   const camx=S.px-W/2, camy=S.py-H/2;
   drawPSXGround(z,camx,camy);
-  // square grid (parallax to world)
-  ctx.strokeStyle='rgba(230,210,155,0.065)'; ctx.lineWidth=1;
-  const gs=64; const ox=-((camx%gs)+gs)%gs, oy=-((camy%gs)+gs)%gs;
-  ctx.beginPath();
-  for(let x=ox;x<W;x+=gs){ ctx.moveTo(x,0); ctx.lineTo(x,H); }
-  for(let y=oy;y<H;y+=gs){ ctx.moveTo(0,y); ctx.lineTo(W,y); }
-  ctx.stroke();
-  // zone decorations (deterministic per grid cell)
+  // zone decorations (deterministic per world cell)
+  const gs=64;
   const c0x=Math.floor(camx/gs)-1, c0y=Math.floor(camy/gs)-1;
   for(let gy=c0y;gy<=c0y+Math.ceil(H/gs)+2;gy++) for(let gx=c0x;gx<=c0x+Math.ceil(W/gs)+2;gx++){
     const h=cellHash(gx,gy); if(h>0.38) continue;
     const jx=(cellHash(gx+911,gy)*0.8+0.1)*gs, jy=(cellHash(gx,gy+577)*0.8+0.1)*gs;
     drawDecor(S.zoneIdx,h,gx*gs-camx+jx,gy*gs-camy+jy);
+    // sparse landmarks break the field's repeated texture: ruins, shrines and warning stones
+    if(h<0.055){ const lx=gx*gs-camx+jx, ly=gy*gs-camy+jy;
+      ctx.save(); ctx.translate(lx,ly);
+      if(S.zoneIdx===0||S.zoneIdx===1){ ctx.fillStyle='#4a4438'; ctx.fillRect(-8,-22,16,26); ctx.fillStyle='#75634b'; ctx.fillRect(-11,-26,22,7); ctx.fillStyle='#d9bd74'; ctx.fillRect(-2,-16,4,7); }
+      else if(S.zoneIdx===2){ ctx.fillStyle='#292338'; ctx.fillRect(-10,-18,20,24); ctx.strokeStyle='#a06edc'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(0,-8,5,0,6.28); ctx.stroke(); }
+      else if(S.zoneIdx===3){ ctx.fillStyle='#214957'; ctx.beginPath(); ctx.moveTo(-13,4); ctx.lineTo(-7,-20); ctx.lineTo(0,-7); ctx.lineTo(8,-25); ctx.lineTo(14,4); ctx.closePath(); ctx.fill(); }
+      else { ctx.fillStyle='#2b1712'; ctx.fillRect(-10,-19,20,24); ctx.fillStyle='#ff6a2a'; ctx.fillRect(-3,-14,6,14); }
+      ctx.restore(); }
   }
   // vignette dark
   function sx(wx){return wx-camx;} function sy(wy){return wy-camy;}
@@ -1695,6 +1929,25 @@ function render(){
     // stone floor
     const fg=ctx.createRadialGradient(cx,cy,10,cx,cy,R); fg.addColorStop(0,'#241f2c'); fg.addColorStop(1,'#120e18');
     ctx.fillStyle=fg; ctx.beginPath(); ctx.arc(cx,cy,R,0,6.28); ctx.fill();
+    // uneven cavern floor: broad rock faces and broken ritual paths, not a square tile grid
+    ctx.save(); ctx.beginPath(); ctx.arc(cx,cy,R-10,0,6.28); ctx.clip();
+    for(let i=0;i<34;i++){ const a=i*2.399, rr=36+(i%7)*R*.105, sz=42+(i%5)*15;
+      const px=cx+Math.cos(a)*rr, py=cy+Math.sin(a)*rr*.8, q=cellHash(i,S.zoneIdx+21);
+      ctx.fillStyle=q>.48?'rgba(112,88,128,.14)':'rgba(9,7,14,.18)';
+      psxPoly([[px-sz*.8,py-sz*.18],[px-sz*.2,py-sz*.72],[px+sz*.78,py-sz*.36],[px+sz*.58,py+sz*.58],[px-sz*.62,py+sz*.48]],ctx.fillStyle);
+      if(q<.28){ ctx.strokeStyle='rgba(5,3,9,.62)'; ctx.lineWidth=1.6; ctx.beginPath(); ctx.moveTo(px-sz*.5,py-sz*.25); ctx.lineTo(px,py+sz*.08); ctx.lineTo(px+sz*.45,py-sz*.18); ctx.stroke(); }
+    }
+    // a fractured processional trail leading toward the altar
+    ctx.strokeStyle='rgba(12,8,18,.52)'; ctx.lineWidth=34; ctx.lineCap='round'; ctx.beginPath(); ctx.moveTo(cx,cy-R); ctx.quadraticCurveTo(cx-28,cy-R*.3,cx,cy); ctx.stroke();
+    ctx.strokeStyle='rgba(102,76,118,.18)'; ctx.lineWidth=18; ctx.beginPath(); ctx.moveTo(cx,cy-R); ctx.quadraticCurveTo(cx-28,cy-R*.3,cx,cy); ctx.stroke();
+    ctx.restore();
+    // ritual altar at the heart of every boss chamber
+    ctx.save(); ctx.translate(cx,cy); ctx.rotate(Math.PI/4); ctx.fillStyle='#30243a'; ctx.strokeStyle='#8964a8'; ctx.lineWidth=2;
+    ctx.fillRect(-18,-18,36,36); ctx.strokeRect(-18,-18,36,36); ctx.fillStyle='rgba(214,102,255,.45)'; ctx.fillRect(-5,-5,10,10); ctx.restore();
+    // paired torches lend depth and make the arena read as a dungeon rather than a flat ring
+    for(const s of [-1,1]) for(const yy of [-.58,.58]){ const tx=cx+s*R*.7, ty=cy+yy*R*.7, fl=4+Math.sin(performance.now()*.012+s*3+yy)*2;
+      ctx.strokeStyle='#32201a'; ctx.lineWidth=4; ctx.beginPath(); ctx.moveTo(tx,ty+12); ctx.lineTo(tx,ty-4); ctx.stroke();
+      ctx.fillStyle='#ff8a32'; ctx.shadowColor='#ff5b24'; ctx.shadowBlur=13; ctx.beginPath(); ctx.arc(tx,ty-7,fl,0,6.28); ctx.fill(); ctx.shadowBlur=0; }
     // floor rune ring
     ctx.strokeStyle='rgba(180,90,200,0.25)'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(cx,cy,R*0.62,0,6.28); ctx.stroke();
     ctx.strokeStyle='rgba(180,90,200,0.15)'; ctx.beginPath(); ctx.arc(cx,cy,R*0.4,0,6.28); ctx.stroke();
@@ -1763,12 +2016,35 @@ function render(){
   for(const p of parts){ ctx.globalAlpha=Math.max(0,p.life); ctx.fillStyle=p.col; ctx.beginPath(); ctx.arc(sx(p.x),sy(p.y),p.r*p.life,0,6.28); ctx.fill(); }
   ctx.globalAlpha=1;
 
+  // enemy attack effects — readable silhouettes for ranged mobs, invaders and bosses
+  for(const e of enemyFx){
+    const p=1-e.life, x=sx(e.x), y=sy(e.y), tx=sx(e.tx), ty=sy(e.ty);
+    ctx.save(); ctx.globalAlpha=Math.max(0,e.life);
+    if(e.type==='bolt'||e.type==='allyBolt'||e.type==='allyArrow'){
+      const bx=x+(tx-x)*p, by=y+(ty-y)*p; ctx.fillStyle=e.type==='allyArrow'?'#bfffa6':e.type==='allyBolt'?e.col:'#b98cff'; ctx.shadowColor=ctx.fillStyle; ctx.shadowBlur=12;
+      ctx.beginPath(); ctx.arc(bx,by,5,0,6.28); ctx.fill();
+      if(e.type==='allyArrow'){ ctx.strokeStyle='#f5ffd5'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(bx-7,by+4); ctx.lineTo(bx+7,by-4); ctx.stroke(); }
+    } else if(e.type==='boss'){
+      ctx.strokeStyle=e.col; ctx.shadowColor=e.col; ctx.shadowBlur=14; ctx.lineWidth=7*e.life;
+      ctx.beginPath(); ctx.arc(x,y,22+p*78,0,6.28); ctx.stroke();
+    } else if(e.type==='rival'){
+      ctx.strokeStyle='#ff4b52'; ctx.shadowColor='#ff1d35'; ctx.shadowBlur=12; ctx.lineWidth=5*e.life;
+      ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(tx,ty); ctx.stroke();
+    } else {
+      ctx.strokeStyle=e.col||'#ffb15c'; ctx.lineWidth=5*e.life; ctx.shadowColor=e.col||'#ffb15c'; ctx.shadowBlur=8;
+      const a=Math.atan2(ty-y,tx-x); ctx.beginPath(); ctx.arc(x,y,28+p*22,a-.9,a+.9); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
   // monsters
   for(const m of monsters){
     const x=sx(m.x),y=sy(m.y);
     const vs=m.areaBoss?{w:m.r*3.1,h:m.r*3.8}:monsterSheetReady?creatureVisualSize(m.kind,m.r):{w:m.r*2,h:m.r*2};
     const top=y-(m.areaBoss?vs.h*.76:monsterSheetReady?vs.h*.76:m.r);
     ctx.fillStyle='rgba(0,0,0,0.38)'; ctx.beginPath(); ctx.ellipse(x,y+m.r*0.7,Math.max(m.r*.9,vs.w*.32),m.r*0.42,0,0,6.28); ctx.fill();
+    if(m.tele>0){ ctx.strokeStyle=m.acc||'#ffb15c'; ctx.lineWidth=2.5; ctx.globalAlpha=.45+.45*Math.sin(performance.now()*.025); ctx.beginPath(); ctx.arc(x,y,m.r+10,0,6.28); ctx.stroke(); ctx.globalAlpha=1; }
+    if(m.dash>0){ ctx.strokeStyle='rgba(255,235,175,.55)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(x+(S.px-m.x)*.45,y+(S.py-m.y)*.45); ctx.stroke(); }
     ctx.save(); ctx.translate(x,y+Math.sin(m.wob)*2);
     if(m.areaBoss) drawDetailedBoss(m.shape,m.r,m); else drawDetailedCreature(m.kind,m.r,m);
     ctx.restore();
@@ -1809,24 +2085,81 @@ function render(){
 
   // player
   const px=W/2, py=H/2;
+  if(seraphyActive()){
+    const t=performance.now()*.004;
+    ctx.save(); ctx.strokeStyle='rgba(112,255,130,.7)'; ctx.shadowColor='#59ff76'; ctx.shadowBlur=14; ctx.lineWidth=2;
+    ctx.beginPath(); ctx.ellipse(px,py+28,22+Math.sin(t)*3,7,0,0,6.28); ctx.stroke();
+    for(let i=0;i<5;i++){ const a=t+i*1.256, rr=25+(i%2)*7; ctx.fillStyle='#9dff8a'; ctx.beginPath(); ctx.arc(px+Math.cos(a)*rr,py+8+Math.sin(a)*rr*.55,2,0,6.28); ctx.fill(); }
+    ctx.restore();
+  }
+  if(mercBlessActive()){
+    const t=performance.now()*.005;
+    ctx.save(); ctx.strokeStyle='rgba(255,190,246,.72)'; ctx.shadowColor='#ffd6f4'; ctx.shadowBlur=10; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.ellipse(px,py+25,19+Math.sin(t)*2,5,0,0,6.28); ctx.stroke();
+    for(let i=0;i<4;i++){ const a=t+i*1.57; ctx.fillStyle='#ffd6f4'; ctx.beginPath(); ctx.arc(px+Math.cos(a)*20,py+Math.sin(a)*12,1.8,0,6.28); ctx.fill(); }
+    ctx.restore();
+  }
   drawDetailedHero(px,py);
-  // pet familiar
+  if(mercActive()){
+    const q=S.merc, m=MERCS[q.type], mx=sx(q.x), my=sy(q.y), bob=Math.sin(performance.now()*.006)*2;
+    const fairyIndex=q.type==='mage'?0:q.type==='archer'?1:2;
+    if(fairyMercSheetReady&&fairyMercSheet.naturalWidth){
+      // The three mercenaries share one transparent sheet.  A subtle bob and
+      // colored aura retain the living companion feel without obscuring detail.
+      ctx.save(); ctx.translate(mx,my+bob);
+      ctx.globalAlpha=.20; ctx.fillStyle=m.col; ctx.shadowColor=m.col; ctx.shadowBlur=18;
+      ctx.beginPath(); ctx.ellipse(0,7,32,12,0,0,6.28); ctx.fill();
+      ctx.globalAlpha=1; ctx.shadowBlur=0;
+      const sw=fairyMercSheet.naturalWidth/3, sh=fairyMercSheet.naturalHeight;
+      const flap=Math.sin(performance.now()*.018+(q.type==='mage'?0:q.type==='archer'?2:4));
+      ctx.translate(0,-Math.abs(flap)*2); ctx.rotate(flap*.028); ctx.scale(1+flap*.035,1-flap*.025);
+      ctx.drawImage(fairyMercSheet,sw*fairyIndex,120,sw,930,-12,-45,24,52);
+      ctx.restore();
+    } else {
+    ctx.save(); ctx.translate(mx,my+bob);
+    // Large fairy companion: deliberately much bigger than the loot familiar.
+    ctx.fillStyle='rgba(0,0,0,.35)'; ctx.beginPath(); ctx.ellipse(0,19,18,6,0,0,6.28); ctx.fill();
+    ctx.shadowColor=m.col; ctx.shadowBlur=18; ctx.fillStyle='rgba(120,240,255,.13)'; ctx.beginPath(); ctx.arc(0,0,31,0,6.28); ctx.fill(); ctx.shadowBlur=0;
+    ctx.fillStyle=m.col+'aa';
+    ctx.beginPath(); ctx.moveTo(-5,-8); ctx.bezierCurveTo(-30,-30,-32,0,-12,12); ctx.bezierCurveTo(-22,0,-18,-14,-5,-8); ctx.fill();
+    ctx.beginPath(); ctx.moveTo(5,-8); ctx.bezierCurveTo(30,-30,32,0,12,12); ctx.bezierCurveTo(22,0,18,-14,5,-8); ctx.fill();
+    ctx.fillStyle='rgba(255,255,255,.44)'; ctx.beginPath(); ctx.ellipse(-17,-8,8,17,-.6,0,6.28); ctx.ellipse(17,-8,8,17,.6,0,6.28); ctx.fill();
+    ctx.fillStyle=q.type==='mage'?'#334c9e':q.type==='archer'?'#39734a':'#d9b8df'; ctx.beginPath(); ctx.moveTo(-11,16); ctx.lineTo(-8,-4); ctx.lineTo(8,-4); ctx.lineTo(11,16); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#f5d7ba'; ctx.beginPath(); ctx.arc(0,-11,8,0,6.28); ctx.fill();
+    ctx.fillStyle=q.type==='mage'?'#dce8ff':q.type==='archer'?'#9be48c':'#fff1fa'; ctx.beginPath(); ctx.arc(0,-16,8,Math.PI,0); ctx.lineTo(8,-11); ctx.lineTo(-8,-11); ctx.closePath(); ctx.fill();
+    ctx.fillStyle='#fff'; ctx.beginPath(); ctx.arc(-3,-11,1.15,0,6.28); ctx.arc(3,-11,1.15,0,6.28); ctx.fill();
+    if(q.type==='mage'){ ctx.strokeStyle='#8fb6ff'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(11,13); ctx.lineTo(18,-12); ctx.stroke(); ctx.fillStyle='#ccecff'; ctx.beginPath(); ctx.arc(19,-14,4,0,6.28); ctx.fill(); }
+    else if(q.type==='archer'){ ctx.strokeStyle='#d8b66c'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.arc(15,0,10,-1.25,1.25); ctx.moveTo(15,-10); ctx.lineTo(15,10); ctx.stroke(); }
+    else { ctx.strokeStyle='#9dffb0'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(15,-8); ctx.lineTo(15,10); ctx.moveTo(9,1); ctx.lineTo(21,1); ctx.stroke(); }
+    ctx.restore();
+    }
+    ctx.fillStyle='#000'; ctx.fillRect(mx-22,my-37,44,4); ctx.fillStyle=m.col; ctx.fillRect(mx-22,my-37,44*Math.max(0,q.hp/q.maxhp),4);
+  }
+  // fairy familiar — a small light spirit that gathers nearby loot
   if(S.running){
-    const ex=sx(pet.x), ey=sy(pet.y), t=performance.now(), flap=Math.sin(t*0.02)*3;
-    ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.beginPath(); ctx.ellipse(ex,ey+12,8,3,0,0,6.28); ctx.fill();
-    ctx.save(); ctx.translate(ex,ey+Math.sin(pet.t*0.06)*2);
-    // wings
-    ctx.fillStyle='rgba(180,210,255,0.8)';
-    for(const s of [-1,1]){ ctx.beginPath(); ctx.moveTo(s*4,-2); ctx.quadraticCurveTo(s*(13+flap),-9,s*11,3); ctx.quadraticCurveTo(s*8,4,s*4,2); ctx.closePath(); ctx.fill(); }
-    // body (gold orb)
-    const g=ctx.createRadialGradient(-2,-3,1,0,0,9); g.addColorStop(0,'#fff2c0'); g.addColorStop(1,'#d99a20');
-    ctx.fillStyle=g; ctx.strokeStyle='#7a5210'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.arc(0,0,8,0,6.28); ctx.fill(); ctx.stroke();
-    // coin mark
-    ctx.fillStyle='#7a5210'; ctx.font='bold 9px sans-serif'; ctx.textAlign='center'; ctx.fillText('Z',0,3);
-    // eyes
-    ctx.fillStyle='#1a1208'; ctx.beginPath(); ctx.arc(-3,-2,1.2,0,6.28); ctx.arc(3,-2,1.2,0,6.28); ctx.fill();
-    // sparkle when it just grabbed loot
-    if(pet.carry>0){ ctx.fillStyle='rgba(255,240,150,'+pet.carry+')'; ctx.beginPath(); ctx.arc(6,-7,2.2,0,6.28); ctx.fill(); }
+    const ex=sx(pet.x), ey=sy(pet.y), t=performance.now(), flap=Math.sin(t*.028)*4;
+    ctx.fillStyle='rgba(0,0,0,.28)'; ctx.beginPath(); ctx.ellipse(ex,ey+13,9,3,0,0,6.28); ctx.fill();
+    ctx.save(); ctx.translate(ex,ey+Math.sin(pet.t*.075)*3); ctx.scale(.25,.25);
+    // soft aura
+    const aura=ctx.createRadialGradient(0,0,2,0,0,22); aura.addColorStop(0,'rgba(255,245,177,.52)'); aura.addColorStop(1,'rgba(255,210,80,0)');
+    ctx.fillStyle=aura; ctx.beginPath(); ctx.arc(0,0,22,0,6.28); ctx.fill();
+    // translucent butterfly wings
+    for(const s of [-1,1]){
+      const wg=ctx.createLinearGradient(0,-12,s*18,6); wg.addColorStop(0,'rgba(255,255,245,.95)'); wg.addColorStop(1,'rgba(255,174,235,.42)');
+      ctx.fillStyle=wg; ctx.strokeStyle='rgba(255,225,250,.75)'; ctx.lineWidth=1;
+      ctx.beginPath(); ctx.moveTo(s*2,-3); ctx.quadraticCurveTo(s*(12+flap),-17,s*18,-8); ctx.quadraticCurveTo(s*16,2,s*5,4); ctx.closePath(); ctx.fill(); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(s*2,1); ctx.quadraticCurveTo(s*(11+flap*.45),10,s*14,12); ctx.quadraticCurveTo(s*5,12,s*2,5); ctx.closePath(); ctx.fill(); ctx.stroke();
+    }
+    // tiny fairy body, hair and dress
+    ctx.fillStyle='#ffe9c8'; ctx.strokeStyle='#9a622e'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.arc(0,-6,4.1,0,6.28); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#f4c14d'; ctx.beginPath(); ctx.arc(0,-7.5,4.2,Math.PI,6.28); ctx.fill();
+    ctx.fillStyle='#5e356e'; ctx.beginPath(); ctx.moveTo(-3,-2); ctx.lineTo(3,-2); ctx.lineTo(6,9); ctx.lineTo(-6,9); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='#ffd8fb'; ctx.lineWidth=1.2; ctx.beginPath(); ctx.moveTo(-1,0); ctx.lineTo(-6,5); ctx.moveTo(1,0); ctx.lineTo(6,5); ctx.stroke();
+    ctx.fillStyle='#2c1831'; ctx.beginPath(); ctx.arc(-1.4,-6,0.8,0,6.28); ctx.arc(1.4,-6,0.8,0,6.28); ctx.fill();
+    // orbiting fairy dust; becomes brighter just after a pickup
+    const glow=pet.carry>0 ? .95 : .48;
+    for(let i=0;i<3;i++){ const a=t*.004+i*2.1; const rr=12+i*2; ctx.fillStyle='rgba(255,245,155,'+(glow-i*.1)+')'; ctx.beginPath(); ctx.arc(Math.cos(a)*rr,Math.sin(a)*rr*.55-3,1.3,0,6.28); ctx.fill(); }
     ctx.restore();
   }
 
@@ -1956,6 +2289,9 @@ requestAnimationFrame(loop);
 updateHUD();
 // prevent scroll
 document.addEventListener('touchmove',e=>{ if(e.target.closest('.pBody'))return; e.preventDefault(); },{passive:false});
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(()=>{}));
+}
 </script>
 </body>
 </html>

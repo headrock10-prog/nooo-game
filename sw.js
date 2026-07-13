@@ -1,9 +1,10 @@
-const CACHE='nooo-mobile-v3';
+const CACHE='nooo-mobile-v26';
 const FILES=[
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
+  './fairy-mercs.png',
   './assets/gothic-knight-sprites.png',
   './assets/gothic-monsters-atlas.png',
   './assets/gothic-bosses-atlas.png'
