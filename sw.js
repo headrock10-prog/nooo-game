@@ -1,4 +1,4 @@
-const CACHE='nooo-mobile-v38';
+﻿const CACHE='nooo-mobile-v41';
 const FILES=[
   './',
   './index.html',
@@ -31,3 +31,4 @@ self.addEventListener('fetch',event=>{
     }).catch(()=>caches.match('./index.html')))
   );
 });
+

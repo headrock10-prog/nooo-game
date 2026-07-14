@@ -3,14 +3,6 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#090806">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Nooo">
-<link rel="manifest" href="manifest.webmanifest">
-<link rel="icon" href="icon.svg" type="image/svg+xml">
-<link rel="apple-touch-icon" href="icon.svg">
 <title>Nooo 偶然の空地</title>
 <style>
   * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; user-select:none; -webkit-user-select:none; }
@@ -26,6 +18,7 @@
   .bar { height:14px; border-radius:0; background:#090909; border:2px solid #77705e; overflow:hidden; position:relative; box-shadow:3px 3px 0 #000,inset 0 0 0 1px #17120d; }
   .bar > i { display:block; height:100%; transition:width .15s; }
   .hpfill { background:linear-gradient(90deg,#7a0d0d,#e23b3b); }
+  .mpfill { background:linear-gradient(90deg,#123a7a,#49b8ff); }
   .xpfill { background:linear-gradient(90deg,#1d4a6e,#3fa9e0); }
   .bar span { position:absolute; inset:0; font-size:10px; line-height:14px; text-align:center; color:#fff; text-shadow:0 1px 2px #000; letter-spacing:.5px; }
   #topRow { display:flex; align-items:center; gap:8px; margin-bottom:5px; }
@@ -119,6 +112,14 @@
     .pTitle { margin-bottom:6px; }
   }
 </style>
+<meta name="theme-color" content="#090806">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Nooo">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
 </head>
 <body>
 <div id="game"><canvas id="cv"></canvas></div>
@@ -129,6 +130,7 @@
     <div id="lvBadge">Lv.1</div>
     <div id="barsCol">
       <div class="bar"><i class="hpfill" id="hpfill" style="width:100%"></i><span id="hptxt">HP</span></div>
+      <div class="bar"><i class="mpfill" id="mpfill" style="width:100%"></i><span id="mptxt">MP</span></div>
       <div class="bar"><i class="xpfill" id="xpfill" style="width:0%"></i><span id="xptxt">EXP</span></div>
     </div>
   </div>
@@ -345,7 +347,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.38</div>
+  <div id="buildVer">ver.0.41</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -470,7 +472,7 @@ const S = {
   running:false,
   lv:1, exp:0, expNext:20,
   vit:10, str:10, agi:10, ene:10, statPts:0,
-  hp:100, maxhp:100,
+  hp:100, maxhp:100, mp:80, maxmp:80,
   zen:0, jb:0, js:0, jc:0, charm:0, pots:3,
   wep:0,            // legacy mirror of the equipped weapon's enhancement
   wing:0,           // legacy field: wings are retired in favor of accessories
@@ -478,7 +480,7 @@ const S = {
   facing:1,
   potCd:0,
   zoneIdx:0,
-  gear:{weapon:null,helm:null,armor:null,gloves:null,boots:null,ring:null,necklace:null,talisman:null}, // equipped pieces
+  gear:{weapon:null,helm:null,armor:null,gloves:null,waist:null,boots:null,fire:null,ice:null,lightning:null,wind:null}, // equipped pieces
   inv:[],            // unequipped gear pieces
   gearSeq:1,
   inDungeon:false, dunIdx:0,
@@ -546,8 +548,27 @@ const SETS=[
   {id:'archangel',name:'アークエンジェル',rar:7,col:'#fff1a3',baseDef:170,rname:'神話',req:{},theme:'ボス限定：天使の最強武器'},
 ];
 const SLOTS=[
-  {k:'weapon',n:'武器',icon:'🗡',mul:1.35}, {k:'helm',n:'兜',icon:'⛑',mul:1.0}, {k:'armor',n:'鎧',icon:'🛡',mul:1.5}, {k:'gloves',n:'籠手',icon:'🧤',mul:0.7}, {k:'boots',n:'具足',icon:'🥾',mul:0.9},
-  {k:'ring',n:'指輪',icon:'💍',mul:0.72,acc:'atk'}, {k:'necklace',n:'首飾り',icon:'📿',mul:0.82,acc:'hp'}, {k:'talisman',n:'護符',icon:'🧿',mul:0.58,acc:'crit'}
+  {k:'weapon',n:'武器',icon:'🗡',mul:1.35}, {k:'helm',n:'兜',icon:'⛑',mul:1.0}, {k:'armor',n:'鎧',icon:'🛡',mul:1.5}, {k:'gloves',n:'籠手',icon:'🧤',mul:0.7}, {k:'waist',n:'腰当て',icon:'🩳',mul:1.05}, {k:'boots',n:'具足',icon:'🥾',mul:0.9},
+  {k:'fire',n:'炎のアクセ',icon:'🔥',mul:0.7,acc:'fire'}, {k:'ice',n:'氷のアクセ',icon:'❄️',mul:0.7,acc:'ice'}, {k:'lightning',n:'雷のアクセ',icon:'⚡',mul:0.7,acc:'lightning'}, {k:'wind',n:'風のアクセ',icon:'🌪️',mul:0.7,acc:'wind'}
+];
+const UNIQUE_ARMOR={
+  helm:[{id:'shadow_helm',name:'影のヘルム',col:'#8fb6ff',def:18,req:{agi:24}},{id:'crown_helm',name:'王者のクラウン',col:'#ffd86a',def:32,req:{str:48}}],
+  armor:[{id:'night_armor',name:'夜渡りの鎧',col:'#9b7cff',def:30,req:{vit:34}},{id:'guardian_armor',name:'守護者の鎧',col:'#ff8b70',def:48,req:{str:58}}],
+  gloves:[{id:'rune_gloves',name:'ルーンガントレット',col:'#70e8ff',def:15,req:{ene:30}},{id:'titan_gloves',name:'巨人の籠手',col:'#ffbc5e',def:26,req:{str:46}}],
+  waist:[{id:'mist_waist',name:'霧隠れの腰当て',col:'#75e8c1',def:21,req:{agi:38}},{id:'royal_waist',name:'王家の腰当て',col:'#e78cff',def:35,req:{vit:52}}],
+  boots:[{id:'storm_boots',name:'嵐駆けの具足',col:'#7caeff',def:18,req:{agi:32}},{id:'iron_boots',name:'鉄壁の具足',col:'#ff8a70',def:31,req:{vit:48}}]
+};
+const ELEMENT_ACCESSORIES={
+  fire:{name:'炎のユニーク',col:'#ff7048',effect:'攻撃力+',req:{str:20}},
+  ice:{name:'氷のユニーク',col:'#68dfff',effect:'攻撃速度+',req:{agi:20}},
+  lightning:{name:'雷のユニーク',col:'#e9d35b',effect:'EXD確率+',req:{ene:20}},
+  wind:{name:'風のユニーク',col:'#7de89a',effect:'撃破時 HP / MP回復',req:{vit:20}}
+};
+const UNIQUE_WEAPONS=[
+  {id:'flame_blade',name:'炎帝の剣',col:'#ff7048',effect:'atk',def:56,desc:'攻撃力を大きく増加'},
+  {id:'frost_blade',name:'氷牙の剣',col:'#68dfff',effect:'speed',def:52,desc:'攻撃速度を増加'},
+  {id:'lightning_sword',name:'雷鳴の剣',col:'#f6e05e',effect:'exd',def:60,desc:'EXD確率を増加 / ハイオン必須'},
+  {id:'gale_blade',name:'風裂きの剣',col:'#7de89a',effect:'sustain',def:54,desc:'撃破時に生命とマナを回復'}
 ];
 // weapon types: each with distinct handling
 const WTYPES=[
@@ -573,9 +594,15 @@ function normalizeGearState(){
   S.gearSeq=Math.max(1,+S.gearSeq||1);
   const legacy=Math.max(0,Math.min(15,+S.wep||0));
   const retiredWing=Math.max(0,Math.min(4,+S.wing||0));
-  if(!S.gear||typeof S.gear!=='object')S.gear={weapon:null,helm:null,armor:null,gloves:null,boots:null,ring:null,necklace:null,talisman:null};
+  if(!S.gear||typeof S.gear!=='object')S.gear={};
+  // Move the former three generic accessory slots into the four elemental,
+  // unique-only slots without deleting an existing save.
+  const legacyAcc={ring:'fire',necklace:'wind',talisman:'lightning'};
+  for(const old in legacyAcc){ const nk=legacyAcc[old]; if(S.gear[old]&&!S.gear[nk])S.gear[nk]={...S.gear[old],slot:nk,accessory:nk}; }
+  if(!S.gear.waist)S.gear.waist=null;
   for(const s of SLOTS){ const g=S.gear[s.k]; if(g){ g.slot=s.k; ensureGearItem(g,s.k==='weapon'?legacy:0); } else S.gear[s.k]=null; }
   if(!Array.isArray(S.inv))S.inv=[];
+  for(const g of S.inv){ if(g.slot==='ring')g.slot='fire'; else if(g.slot==='necklace')g.slot='wind'; else if(g.slot==='talisman')g.slot='lightning'; }
   for(const g of S.inv)ensureGearItem(g,0);
   if(retiredWing>0&&!S.wingMigrated){
     const st=SETS[Math.min(SETS.length-1,retiredWing)], accSlots=SLOTS.filter(s=>s.acc);
@@ -596,50 +623,67 @@ function weaponInfo(){ const g=S.gear.weapon; if(!g) return {atk:0,crit:0,range:
   return {atk:g.def*1.5*enhanceMul(gearEnh(g)), crit:0, range:0, critMul:1.8, wt}; }
 const SET_BY_ID=Object.fromEntries(SETS.map(s=>[s.id,s]));
 const SLOT_BY_K=Object.fromEntries(SLOTS.map(s=>[s.k,s]));
-function gearReqText(g){ const r=SET_BY_ID[g.set].req||{}, a=[]; if(r.str)a.push('力'+r.str); if(r.agi)a.push('敏'+r.agi); if(r.ene)a.push('知'+r.ene); if(r.vit)a.push('体'+r.vit); return a.length?a.join(' / '):'なし'; }
+function gearReq(g){ return (g.unique&&g.unique.req)||(g.accessory&&ELEMENT_ACCESSORIES[g.accessory]?.req)||SET_BY_ID[g.set].req||{}; }
+function gearColor(g){ return (g.unique&&g.unique.col)||(g.uniqueWeapon&&g.uniqueWeapon.col)||(g.accessory&&ELEMENT_ACCESSORIES[g.accessory]?.col)||SET_BY_ID[g.set].col; }
+function gearReqText(g){ const r=gearReq(g), a=[]; if(r.str)a.push('力'+r.str); if(r.agi)a.push('敏'+r.agi); if(r.ene)a.push('知'+r.ene); if(r.vit)a.push('体'+r.vit); return a.length?a.join(' / '):'なし'; }
 function canUseGear(g){
-  const r=SET_BY_ID[g.set].req||{};
+  const r=gearReq(g);
   // A Seraphy blessing is a real temporary stat increase, so it can also open
   // up equipment choices while the blessing is active.
   return (!r.str||blessedStat('str')>=r.str)&&(!r.agi||blessedStat('agi')>=r.agi)&&(!r.ene||blessedStat('ene')>=r.ene)&&(!r.vit||blessedStat('vit')>=r.vit);
 }
-function gearName(g){ if(g.slot==='weapon') return SET_BY_ID[g.set].name+'の'+(WTYPE_BY_ID[g.wtype]||WTYPES[0]).n; return SET_BY_ID[g.set].name+'の'+SLOT_BY_K[g.slot].n; }
+function gearName(g){ if(g.unique)return g.unique.name; if(g.uniqueWeapon)return g.uniqueWeapon.name; if(g.accessory)return ELEMENT_ACCESSORIES[g.accessory].name; if(g.slot==='weapon') return SET_BY_ID[g.set].name+'の'+(WTYPE_BY_ID[g.wtype]||WTYPES[0]).n; return SET_BY_ID[g.set].name+'の'+SLOT_BY_K[g.slot].n; }
 function isAccessorySlot(k){ return !!(SLOT_BY_K[k]&&SLOT_BY_K[k].acc); }
 function accessoryBonus(){
-  const ring=S.gear.ring, neck=S.gear.necklace, tal=S.gear.talisman;
-  return {
-    atk:ring?ring.def*.9*enhanceMul(gearEnh(ring)):0,
-    hpPct:neck?Math.min(.3,neck.def*.006*enhanceMul(gearEnh(neck))):0,
-    crit:tal?Math.min(.12,tal.def*.0022*enhanceMul(gearEnh(tal))):0
+  const fire=S.gear.fire, ice=S.gear.ice, lightning=S.gear.lightning, wind=S.gear.wind;
+  const a={
+    atk:fire?fire.def*.9*enhanceMul(gearEnh(fire)):0,
+    atkSpeed:ice?Math.min(.28,ice.def*.012*enhanceMul(gearEnh(ice))):0,
+    hpPct:0,
+    crit:lightning?Math.min(.18,lightning.def*.003*enhanceMul(gearEnh(lightning))):0,
+    hpOnKill:wind?Math.max(4,Math.round(wind.def*.65*enhanceMul(gearEnh(wind)))):0,
+    mpOnKill:wind?Math.max(3,Math.round(wind.def*.5*enhanceMul(gearEnh(wind)))):0
   };
+  const w=S.gear.weapon, u=w&&w.uniqueWeapon, p=w?enhanceMul(gearEnh(w)):1;
+  if(u){
+    if(u.effect==='atk')a.atk+=Math.round(w.def*.38*p);
+    if(u.effect==='speed')a.atkSpeed+=.12;
+    if(u.effect==='exd')a.crit+=.15;
+    if(u.effect==='sustain'){a.hpOnKill+=Math.max(5,Math.round(w.def*.32*p)); a.mpOnKill+=Math.max(4,Math.round(w.def*.26*p));}
+  }
+  return a;
 }
 function gearStatText(g){
   const enh=gearEnh(g), p=enhanceMul(enh);
   if(g.slot==='weapon')return '攻+'+Math.round(g.def*1.5*p);
-  if(g.slot==='ring')return '攻+'+Math.round(g.def*.9*p);
-  if(g.slot==='necklace')return 'HP+'+Math.round(g.def*.6*p)+'%';
-  if(g.slot==='talisman')return '会心+'+(g.def*.22*p).toFixed(1)+'%';
+  if(g.slot==='fire')return '攻+'+Math.round(g.def*.9*p);
+  if(g.slot==='ice')return '攻速+'+Math.round(g.def*.012*p*100)+'%';
+  if(g.slot==='lightning')return 'EXD+'+(g.def*.3*p).toFixed(1)+'%';
+  if(g.slot==='wind')return '撃破 HP/MP+'+Math.round(g.def*.5*p);
   return '防+'+Math.round(g.def*p);
 }
 function gearDefTotal(){ let d=0; for(const s of SLOTS){ if(s.k==='weapon'||isAccessorySlot(s.k))continue; const g=S.gear[s.k]; if(g) d+=g.def*enhanceMul(gearEnh(g)); } return d; }
 // aggregate set bonuses across equipped pieces (mixed sets allowed)
 function setBonus(){
-  const cnt={}; for(const s of SLOTS){ const g=S.gear[s.k]; if(g) cnt[g.set]=(cnt[g.set]||0)+1; }
+  const cnt={}; for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(g&&!g.unique)cnt[g.set]=(cnt[g.set]||0)+1; }
   const res={defPct:0,atkPct:0,hpPct:0,crit:0,atkSpeed:0,lines:[]};
   for(const id in cnt){ const c=cnt[id], st=SET_BY_ID[id]; const r=st.rar;
     if(c>=2){ const v=8+r*3; res.defPct+=v; res.lines.push({col:st.col,t:st.name+' 2セット: 防御+'+v+'%'}); }
     if(c>=3){ const v=6+r*3; res.atkPct+=v; res.lines.push({col:st.col,t:st.name+' 3セット: 攻撃+'+v+'%'}); }
-    if(c>=4){ const hv=10+r*4, cv=0.02+r*0.01; res.hpPct+=hv; res.crit+=cv; res.defPct+=5; res.atkPct+=5;
+    if(c>=5 && (st.id!=='hyon'||hasLightningSword())){ const hv=10+r*4, cv=0.02+r*0.01; res.hpPct+=hv; res.crit+=cv; res.defPct+=5; res.atkPct+=5;
       res.lines.push({col:st.col,t:st.name+' フルセット: HP+'+hv+'% 会心+'+Math.round(cv*100)+'% 攻防+5%'}); }
+    else if(c>=5 && st.id==='hyon') res.lines.push({col:st.col,t:'ハイオン覚醒: 雷鳴の剣が必要'});
     if(c>=2 && st.id==='scale'){ res.atkSpeed+=.10; res.lines.push({col:st.col,t:'スケイル機動: 攻撃速度+10%'}); }
     if(c>=3 && st.id==='legend'){ res.atkSpeed+=.08; res.lines.push({col:st.col,t:'レジェンド詠唱: 攻撃速度+8%'}); }
-    if(c>=4 && st.id==='gaia'){ res.atkSpeed+=.14; res.lines.push({col:st.col,t:'ガイア連撃: 攻撃速度+14%'}); }
+    if(c>=5 && st.id==='gaia'){ res.atkSpeed+=.14; res.lines.push({col:st.col,t:'ガイア連撃: 攻撃速度+14%'}); }
   }
   return res;
 }
-function attackSpeed(){ return Math.min(2.35,1+blessedStat('agi')*.012+setBonus().atkSpeed); }
+function attackSpeed(){ return Math.min(2.35,1+blessedStat('agi')*.012+setBonus().atkSpeed+accessoryBonus().atkSpeed); }
+function hasLightningSword(){ return S.gear.weapon?.uniqueWeapon?.id==='lightning_sword'; }
 function attackCooldown(base){ return Math.max(11,Math.round((base||42)/attackSpeed())); }
 function maxHpCalc(){ const a=accessoryBonus(); return Math.floor((80 + blessedStat('vit')*8 + S.lv*12) * (1+setBonus().hpPct/100+a.hpPct)); }
+function maxMpCalc(){ return Math.floor(45+blessedStat('ene')*9+S.lv*4); }
 const WINGS=[
   {name:"なし", mul:1.0, eff:"-", icon:"🚫"},
   {name:"1次の羽", mul:1.25, eff:"攻撃/防御 +25%", icon:"🪶"},
@@ -654,7 +698,8 @@ function critCalc(){ return Math.min(0.65, 0.03 + blessedStat('ene')*0.004 + set
 function critMul(){ return weaponInfo().critMul; }
 function cpCalc(){ let g=0; for(const s of SLOTS){ const it=S.gear[s.k]; if(it) g+=it.def*2+(it.rar+1)*40+gearEnh(it)*40; } return Math.floor(atkCalc()*2 + defCalc()*3 + S.maxhp*0.4 + g); }
 // recompute maxhp after gear change, keep hp ratio
-function recalcHp(){ const ratio=S.maxhp>0?S.hp/S.maxhp:1; S.maxhp=maxHpCalc(); S.hp=Math.min(S.maxhp,Math.max(1,Math.round(S.maxhp*ratio))); }
+function recalcHp(){ const ratio=S.maxhp>0?S.hp/S.maxhp:1, mpRatio=S.maxmp>0?S.mp/S.maxmp:1; S.maxhp=maxHpCalc(); S.maxmp=maxMpCalc(); S.hp=Math.min(S.maxhp,Math.max(1,Math.round(S.maxhp*ratio))); S.mp=Math.min(S.maxmp,Math.max(0,Math.round(S.maxmp*mpRatio))); }
+function spendMana(cost,silent){ if(S.mp>=cost){S.mp-=cost;return true;} if(!silent)toast('マナが足りない'); return false; }
 
 // ---------- entities ----------
 let monsters=[], drops=[], fcts=[], slashes=[], parts=[], enemyFx=[];
@@ -727,8 +772,9 @@ function aoeAttack(){
   const wtId=S.gear.weapon?S.gear.weapon.wtype:'sword';
   // 3-hit combo: 0=swing up, 1=return slash, 2=finisher (stronger + wider)
   if(combo.timer<=0) combo.step=0;
-  const step=combo.step; combo.step=(combo.step+1)%3; combo.timer=55;
-  const fin=step===2;
+  const step=combo.step, fin=step===2;
+  if(!spendMana(fin?6:3)) return;
+  combo.step=(combo.step+1)%3; combo.timer=55;
   const dmgMul=[1,1.12,1.55][step], rangeMul=fin?1.35:1;
   const range=(110+weaponInfo().range)*rangeMul, atk=atkCalc();
   slashes.push({x:S.px,y:S.py,life:1,r:range,dir:S.facing,step,kind:wtId});
@@ -860,7 +906,7 @@ function refreshTown(){
 // stat spend
 document.querySelectorAll('.splus').forEach(b=>b.addEventListener('click',()=>{
   if(S.statPts<=0) return; S.statPts--; S[b.dataset.st]++;
-  S.maxhp=maxHpCalc(); if(b.dataset.st==='vit') S.hp+=8;
+  recalcHp(); if(b.dataset.st==='vit') S.hp=Math.min(S.maxhp,S.hp+8);
   refreshPanels(); updateHUD();
 }));
 
@@ -960,7 +1006,7 @@ function refreshGear(){
     if(g){ const st=SET_BY_ID[g.set]; const isW=s.k==='weapon';
       const ic=isW?(WTYPE_BY_ID[g.wtype]||WTYPES[0]).icon:s.icon;
       const enh=gearEnh(g), stat=gearStatText(g);
-      row.innerHTML='<span class="k">'+ic+' '+s.n+'</span><span style="text-align:right"><span class="v" style="color:'+st.col+'"><b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+'</small></span><br>'
+      row.innerHTML='<span class="k">'+ic+' '+s.n+'</span><span style="text-align:right"><span class="v" style="color:'+gearColor(g)+'"><b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+'</small></span><br>'
         +'<button class="gbtn" data-up-eq="'+s.k+'" style="padding:4px 9px;font-size:10px">🔥 強化</button> '
         +'<button class="gbtn" data-uneq="'+s.k+'" style="padding:4px 8px;font-size:10px;background:#211b14">外す</button></span>';
     } else {
@@ -983,7 +1029,7 @@ function refreshGear(){
     const enh=gearEnh(g), stat=gearStatText(g);
     const row=document.createElement('div'); row.className='row'; row.style.borderBottom='1px dashed #2a2117';
     const usable=canUseGear(g), req=gearReqText(g);
-    row.innerHTML='<span style="font-size:12px;color:'+st.col+'">'+ic+' <b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+' / 必要:'+req+'</small></span>'
+    row.innerHTML='<span style="font-size:12px;color:'+gearColor(g)+'">'+ic+' <b class="plus">+'+enh+'</b> '+gearName(g)+' <small class="small">'+stat+' / 必要:'+req+'</small></span>'
       +'<span><button class="gbtn" data-eq="'+i+'" style="padding:5px 10px;font-size:11px">'+(usable?'装備':'条件確認')+'</button> '
       +'<button class="gbtn" data-up-inv="'+g.uid+'" style="padding:5px 8px;font-size:11px">🔥</button> '
       +'<button class="gbtn" data-sell="'+i+'" style="padding:5px 8px;font-size:11px;background:linear-gradient(180deg,#5a2a2a,#2e0e0e);border-color:#8a4242;color:#ffc8c8">💰'+sellPrice(g)+'</button></span>';
@@ -1065,8 +1111,10 @@ function updateHUD(){
   document.getElementById('jc').textContent=S.jc;
   document.getElementById('ch').textContent=S.charm;
   document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%';
+  document.getElementById('mpfill').style.width=Math.max(0,S.mp/S.maxmp*100)+'%';
   document.getElementById('xpfill').style.width=(S.exp/S.expNext*100)+'%';
   document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp;
+  document.getElementById('mptxt').textContent='MP '+Math.ceil(S.mp)+' / '+S.maxmp;
   document.getElementById('xptxt').textContent='EXP '+Math.floor(S.exp)+' / '+S.expNext;
   document.getElementById('zoneName').textContent=ZONES[S.zoneIdx].name;
   document.getElementById('statDot').style.display=S.statPts>0?'block':'none';
@@ -1086,7 +1134,7 @@ function gainExp(n){
     S.exp-=S.expNext; S.lv++; S.statPts+=5;
     // The early game is brisk; after Lv.30 the curve becomes deliberately gentler.
     S.expNext=Math.floor(S.expNext*(S.lv>=30?1.18:1.35)+(S.lv>=30?28:15));
-    S.maxhp=maxHpCalc(); S.hp=S.maxhp;
+    S.maxhp=maxHpCalc(); S.hp=S.maxhp; S.maxmp=maxMpCalc(); S.mp=S.maxmp;
     // Areas unlock with level, but travel is always a player choice at the town gate.
     const unlocked=ZONES.find(z=>z.minLv===S.lv); if(unlocked)toast('🌀 '+unlocked.name+' が転送門に追加された');
     flash('LEVEL UP','#3fa9e0','Lv.'+S.lv+'　ステ+5'); AU.level();
@@ -1105,6 +1153,8 @@ function killReward(m){
     flash('AREA CLEARED',m.acc,m.name+' を討伐！ アクセサリ確定'); AU.clear();
   }
   gainExp(m.exp);
+  const sustain=accessoryBonus();
+  if(sustain.hpOnKill||sustain.mpOnKill){ S.hp=Math.min(S.maxhp,S.hp+sustain.hpOnKill); S.mp=Math.min(S.maxmp,S.mp+sustain.mpOnKill); }
   const zg=Math.floor(m.zen*(0.7+Math.random()*0.6)); S.zen+=zg;
   drops.push({x:m.x,y:m.y,type:'zen',amt:zg,life:8,t:0});
   if(m.rival){ // rival invader: rich guaranteed loot
@@ -1126,12 +1176,25 @@ function killReward(m){
   if(Math.random()<(m.boss?0.6:0.0027)) dropJewel(m,'ch');
   if(Math.random()<(m.boss?0.8:0.01)) dropJewel(m,'pot');
   // Gear is deliberately a boss reward. Normal monsters only have a near-zero lucky drop.
-  if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); tryArchangelDrop(.0025,false); }
+  if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); tryUniqueWeaponDrop(.05,false,S.zoneIdx); tryArchangelDrop(.0025,false); }
   else if(Math.random()<0.0008) dropGear(m);
   if(m.boss) flash('BOSS KILL','#ff6bd0','大物を討伐！');
   checkAch();
 }
 function dropJewel(m,type){ drops.push({x:m.x+(Math.random()*30-15),y:m.y+(Math.random()*30-15),type,life:14,t:0}); }
+function rollUniqueArmor(slot,zi,boss){
+  const pool=UNIQUE_ARMOR[slot], u=pool[(Math.random()*pool.length)|0], rank=Math.min(6,Math.max(2,zi+(boss?2:1)));
+  const def=Math.round(u.def*(.9+Math.random()*.25)*(1+Math.max(0,rank-2)*.07));
+  return ensureGearItem({set:'bronze',slot,def,rar:rank,enh:0,unique:{...u}},0);
+}
+function rollElementAccessory(slot,zi,boss){
+  const a=ELEMENT_ACCESSORIES[slot], def=Math.round((12+zi*7+(boss?12:0))*(.9+Math.random()*.25));
+  return ensureGearItem({set:'bronze',slot,def,rar:Math.min(6,2+zi+(boss?1:0)),enh:0,accessory:slot},0);
+}
+function rollUniqueWeapon(zi){
+  const u=UNIQUE_WEAPONS[(Math.random()*UNIQUE_WEAPONS.length)|0], def=Math.round(u.def*(.9+Math.random()*.2)*(1+Math.max(0,zi-1)*.09));
+  return ensureGearItem({set:'bronze',slot:'weapon',wtype:'sword',def,rar:Math.min(6,3+zi),enh:0,uniqueWeapon:{...u}},0);
+}
 function rollGearPiece(zi,boss,accessoryOnly){
   const maxRar=Math.min(SETS.length-1, zi + (boss?2:1));
   // weighted toward lower rarity; boss flattens the curve (more high rolls)
@@ -1139,7 +1202,9 @@ function rollGearPiece(zi,boss,accessoryOnly){
   for(let r=0;r<=maxRar;r++){ const w=Math.pow(boss?0.7:0.45, r); pool.push(w); tot+=w; }
   let x=Math.random()*tot, r=0; for(;r<pool.length;r++){ x-=pool[r]; if(x<=0) break; }
   if(r>maxRar) r=maxRar;
-  const st=SETS[r], slots=accessoryOnly?SLOTS.filter(s=>s.acc):SLOTS, slot=slots[(Math.random()*slots.length)|0];
+  const st=SETS[r], slots=accessoryOnly?SLOTS.filter(s=>s.acc):SLOTS.filter(s=>s.k!=='weapon'), slot=slots[(Math.random()*slots.length)|0];
+  if(slot.acc)return rollElementAccessory(slot.k,zi,boss);
+  if(UNIQUE_ARMOR[slot.k])return rollUniqueArmor(slot.k,zi,boss);
   const def=Math.max(1,Math.round(st.baseDef*slot.mul*(0.85+Math.random()*0.35)));
   const g=ensureGearItem({set:st.id, slot:slot.k, def, rar:r,enh:0},0);
   if(slot.k==='weapon'){ const normal=WTYPES.filter(w=>!w.special); g.wtype=normal[(Math.random()*normal.length)|0].id; }
@@ -1158,21 +1223,29 @@ function tryArchangelDrop(rate,instant){
   AU.bossRoar();
   return true;
 }
+function tryUniqueWeaponDrop(rate,instant,zi){
+  if(Math.random()>=rate)return false;
+  const g=rollUniqueWeapon(zi==null?S.zoneIdx:zi);
+  if(instant)pickupGear(g); else drops.push({x:S.px+(Math.random()*36-18),y:S.py+(Math.random()*28-14),type:'gear',gear:g,life:24,t:0,divine:true});
+  flash('UNIQUE WEAPON',gearColor(g),gearName(g)+' が出現した！');
+  return true;
+}
 const INV_MAX=24;
 function pickupGear(g){
   ensureGearItem(g,0);
   CODEX.setsSeen[g.set]=true; checkAch();
   // One copy of each set/slot is enough now that weapon types have no traits.
   // A repeat turns into immediate Zen instead of silently filling the bag.
-  const duplicate=(S.gear[g.slot]&&S.gear[g.slot].set===g.set)||S.inv.some(x=>x.slot===g.slot&&x.set===g.set);
+  const key=x=>x.unique?.id||x.uniqueWeapon?.id||x.accessory||x.set;
+  const duplicate=(S.gear[g.slot]&&key(S.gear[g.slot])===key(g))||S.inv.some(x=>x.slot===g.slot&&key(x)===key(g));
   if(duplicate){ const p=sellPrice(g); S.zen+=p; addFct(S.px,S.py-34,'重複売却 +'+p,'#ffd24a'); toast('💰 '+gearName(g)+' は重複のため自動売却'); updateHUD(); return; }
   // auto-equip if slot empty, else send to inventory
-  if(!S.gear[g.slot] && canUseGear(g)){ S.gear[g.slot]=g; syncLegacyWep(); recalcHp(); flash('EQUIP',SET_BY_ID[g.set].col,gearName(g)+' を装備！'); }
+  if(!S.gear[g.slot] && canUseGear(g)){ S.gear[g.slot]=g; syncLegacyWep(); recalcHp(); flash('EQUIP',gearColor(g),gearName(g)+' を装備！'); }
   else {
     if(S.inv.length>=INV_MAX){ // auto-sell weakest to make room
       S.inv.sort((a,b)=>(a.rar-b.rar)||(gearEnh(a)-gearEnh(b))||(a.def-b.def)); const junk=S.inv.shift(); S.zen+=sellPrice(junk);
     }
-    S.inv.push(g); addFct(S.px,S.py-34,gearName(g),SET_BY_ID[g.set].col);
+    S.inv.push(g); addFct(S.px,S.py-34,gearName(g),gearColor(g));
     toast('🎁 '+gearName(g)+'（'+SET_BY_ID[g.set].rname+'）入手');
   }
   AU.pickup();
@@ -1205,6 +1278,10 @@ function beginDungeonExit(delay){
   // nulled D and immediately continued through boss callbacks, which could
   // leave phone sessions stuck after a kill.
   D.ending=true; D.exitIn=Math.max(8,Number(delay)||24); D.waves=[]; D.boss=null; D.relic=null;
+  // A defeated boss may still have summoned monsters in the shared entity
+  // list.  Remove them before the short exit animation begins so they cannot
+  // damage the hero or touch a half-cleared dungeon state.
+  monsters=[]; enemyFx=[]; atkHeld=false; autoAtkCd=0;
 }
 function enterDungeon(bi,targetLv){
   const cfg=BOSSES[bi]; targetLv=Math.max(1,Math.floor(targetLv||S.lv));
@@ -1239,6 +1316,7 @@ function bossDefeated(){
     const n=2+(Math.random()<0.55?1:0);
     for(let i=0;i<n;i++){ const rar=Math.min(SETS.length-2,rr[0]+((Math.random()*(rr[1]-rr[0]+1))|0)), st=SETS[rar], slot=SLOTS[(Math.random()*SLOTS.length)|0];
       pickupGear({set:st.id,slot:slot.k,def:Math.round(st.baseDef*slot.mul*(1+Math.random()*.3)),rar:st.rar}); }
+    tryUniqueWeaponDrop(.13,true,S.dunIdx);
     tryArchangelDrop(.0065,true);
     flash('DUNGEON CLEAR','#ffd24a',b.name+' を撃破！報酬獲得'); AU.clear();
   }catch(err){
@@ -1269,7 +1347,7 @@ function dungeonUpdate(dt){
   if(d<b.r+30 && b.hitCd<=0){ const dmg=Math.max(1,Math.floor(b.atk-defCalc()*0.4)); b.attackAnim=1; S.hp-=dmg; markHeroHit(b.x); addFct(S.px,S.py-32,'-'+dmg,'#ff7a7a'); b.hitCd=46; if(S.hp<=0){playerDie();return;} }
   // player auto-melee on boss
   D.pAtkCd-=dt;
-  if(d<150 && D.pAtkCd<=0){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.8+Math.random()*0.3)*(crit?critMul():1)); b.hp-=dmg; addFct(b.x+(Math.random()*20-10),b.y-b.r-8,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); slashes.push({x:(S.px+b.x)/2,y:(S.py+b.y)/2,life:.7,r:40}); D.pAtkCd=20; }
+  if(d<150 && D.pAtkCd<=0 && spendMana(3,true)){ const crit=Math.random()<critCalc(); let dmg=Math.floor(atkCalc()*(0.8+Math.random()*0.3)*(crit?critMul():1)); b.hp-=dmg; addFct(b.x+(Math.random()*20-10),b.y-b.r-8,(crit?'⚡':'')+dmg,crit?'#ffdf6b':'#fff',crit); slashes.push({x:(S.px+b.x)/2,y:(S.py+b.y)/2,life:.7,r:40}); D.pAtkCd=20; }
   // cast shockwave (enraged: faster & double ring)
   b.castCd-=dt;
   if(b.castCd<=0){ const spd=(3.0+S.dunIdx*0.4)*(b.enraged?1.4:1);
@@ -1388,9 +1466,13 @@ function endChaosCastle(){
 const RIVAL_NAMES=['黒騎士ヴァロウ','流浪のPKカイン','戦鬼ゴルド','亡霊剣士セラ','簒奪者ディーン','処刑人モルガ'];
 function spawnRival(){
   const z=ZONES[S.zoneIdx]; const ang=Math.random()*6.28, r=360;
-  const hp=z.mhp*5*(1+S.lv*0.05);
+  // PK invaders scale from the active hero, rather than remaining tied to the
+  // early-zone table.  They should be a sudden boss-class interruption.
+  const scale=1+Math.max(0,S.lv-8)*.16;
+  const hp=Math.max(z.mhp*18*scale,Math.floor(atkCalc()*(55+S.lv*.65)));
+  const atk=Math.max(Math.floor(z.matk*(2.2+S.lv*.07)),Math.floor(defCalc()*.62+16));
   monsters.push({ x:S.px+Math.cos(ang)*r, y:S.py+Math.sin(ang)*r, hp, maxhp:hp,
-    atk:z.matk*1.7, exp:z.exp*8, zen:z.zen*12, r:18, reach:120, boss:false, rival:true, actCd:40, dash:0, tele:0,
+    atk, exp:z.exp*(14+S.lv*.2), zen:z.zen*(18+S.lv*.25), r:22, reach:120, boss:false, rival:true, actCd:40, dash:0, tele:0,
     rname:RIVAL_NAMES[(Math.random()*RIVAL_NAMES.length)|0], hitCd:0, col:'#2e2440', wob:Math.random()*6.28, motion:Math.random()*6.28, attackAnim:0, kind:'rival', minion:false });
   flash('PK INVASION','#ff3b3b','乱入者が現れた！'); if(window.AU)AU.bossRoar();
 }
@@ -1479,6 +1561,9 @@ function update(dt){
     if(D.ending){ D.exitIn-=dt; if(D.exitIn<=0)exitDungeon(); }
     else dungeonUpdate(dt);
   }
+  // During the short dungeon-exit frame window, do not let the normal enemy,
+  // loot, pet, or auto-combat loops re-enter a boss state that is being torn down.
+  if(S.inDungeon&&D&&D.ending)return;
   // Convert actual displacement (manual or auto) into a weighted animation state.
   const invDt=1/Math.max(0.001,dt), rawVx=(S.px-motionStartX)*invDt, rawVy=(S.py-motionStartY)*invDt;
   const rawSpeed=Math.hypot(rawVx,rawVy), response=1-Math.pow(0.68,dt);
@@ -1585,10 +1670,11 @@ function update(dt){
   for(let i=parts.length-1;i>=0;i--){ const p=parts[i]; p.x+=p.vx*dt; p.y+=p.vy*dt; p.vy+=0.06*dt; p.life-=dt*0.035; if(p.life<=0)parts.splice(i,1); }
   // regen (very small now — survival depends on potions)
   if(S.hp<S.maxhp) S.hp=Math.min(S.maxhp,S.hp+0.012*dt);
+  if(S.mp<S.maxmp) S.mp=Math.min(S.maxmp,S.mp+(0.08+blessedStat('ene')*.0015)*dt);
   updateHUDthrottle(dt);
 }
 let meleeCd=0, spawnTimer=10, hudT=0, rivalTimer=1800, areaBossTimer=360, seraphyPrev=false, deathLockUntil=0;
-function updateHUDthrottle(dt){ hudT-=dt; if(hudT<=0){ document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%'; document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp; hudT=6; } }
+function updateHUDthrottle(dt){ hudT-=dt; if(hudT<=0){ document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%'; document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp; document.getElementById('mpfill').style.width=Math.max(0,S.mp/S.maxmp*100)+'%'; document.getElementById('mptxt').textContent='MP '+Math.ceil(S.mp)+' / '+S.maxmp; hudT=6; } }
 
 function playerDie(){
   const now=Date.now();
@@ -1616,7 +1702,7 @@ function equippedArmorColor(){ let best=null; for(const s of SLOTS){ const g=S.g
 function slotGearColor(slot,fallback){ const g=S.gear[slot]; return g?SET_BY_ID[g.set].col:fallback; }
 function heroVisualSet(){
   const count={};
-  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(g)count[g.set]=(count[g.set]||0)+1; }
+  for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(g&&!g.unique)count[g.set]=(count[g.set]||0)+1; }
   let pick=null;
   for(const id in count){ const st=SET_BY_ID[id]; if(!pick||count[id]>pick.n||(count[id]===pick.n&&st.rar>pick.st.rar))pick={st,n:count[id]}; }
   return pick?{...pick.st,pieces:pick.n}:null;
@@ -1626,7 +1712,7 @@ function visibleArmorEnh(){
   // A complete set must reach the threshold together.  One highly upgraded
   // piece cannot create the full-body MU-style shine by itself.
   const levels=[];
-  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(!g)return 0; levels.push(gearEnh(g)); }
+  for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(!g)return 0; levels.push(gearEnh(g)); }
   return Math.min(...levels);
 }
 function drawArmorGleam(px,py,lv,t){
@@ -1847,15 +1933,15 @@ function drawDetailedHero(px,py){
   if(heroMotion.hit>.06){ ctx.shadowColor='#ff4a42'; ctx.shadowBlur=12; }
   // A full material colour is reserved for a complete four-piece armour set:
   // helm, armour, gloves, and boots all from the same family.
-  const displaySheet=(visualSet&&visualSet.pieces>=4&&heroTintSheets[visualSet.id])||heroSheet;
+  const displaySheet=(visualSet&&visualSet.pieces>=5&&heroTintSheets[visualSet.id])||heroSheet;
   ctx.drawImage(displaySheet,sx,sy,sw,sh,-dw/2,-dh+31,dw,dh);
   ctx.shadowBlur=0; ctx.restore();
 
   // Small, slot-local highlights make a lone coloured boot or glove readable
   // without pretending that the rest of the armour belongs to that set.
-  const accents={helm:[[0,-54]],armor:[[0,-18]],gloves:[[-18,-12],[18,-12]],boots:[[-10,28],[10,28]]};
+  const accents={helm:[[0,-54]],armor:[[0,-18]],gloves:[[-18,-12],[18,-12]],waist:[[0,7]],boots:[[-10,28],[10,28]]};
   ctx.save(); ctx.globalAlpha=.78;
-  for(const k of ['helm','armor','gloves','boots']){ const g=S.gear[k]; if(!g)continue; const col=SET_BY_ID[g.set].col;
+  for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(!g)continue; const col=gearColor(g);
     for(const p of accents[k]){ const x=px+p[0],y=py+p[1]; ctx.fillStyle=col; ctx.shadowColor=col; ctx.shadowBlur=5;
       psxPoly([[x,y-2.2],[x+2.2,y],[x,y+2.2],[x-2.2,y]],col); }
   }
@@ -2121,7 +2207,7 @@ function render(){
     const x=sx(d.x),y=sy(d.y);
     if(d.type==='zen'){ ctx.fillStyle='#f1c878'; ctx.beginPath(); ctx.arc(x,y,4,0,6.28); ctx.fill(); }
     else if(d.type==='gear'){
-      const c=SET_BY_ID[d.gear.set].col; const bob=Math.sin(d.t*0.1)*3;
+  const c=gearColor(d.gear); const bob=Math.sin(d.t*0.1)*3;
       ctx.save(); ctx.translate(x,y+bob);
       // rarity beam
       ctx.globalAlpha=0.5; ctx.fillStyle=c; ctx.fillRect(-2,-40,4,40); ctx.globalAlpha=1;
@@ -2426,7 +2512,7 @@ function beginGame(fresh){
   S.running=true; S.inDungeon=false; D=null; monsters=[]; drops=[];
   if(fresh && !S.gear.weapon) S.gear.weapon=ensureGearItem({set:'bronze',slot:'weapon',wtype:'sword',def:6,rar:0,enh:0},0);
   normalizeGearState();
-  S.maxhp=maxHpCalc(); S.hp = fresh ? S.maxhp : Math.min(S.hp||S.maxhp, S.maxhp);
+  S.maxhp=maxHpCalc(); S.maxmp=maxMpCalc(); S.hp = fresh ? S.maxhp : Math.min(S.hp||S.maxhp, S.maxhp); S.mp=fresh?S.maxmp:Math.min(S.mp??S.maxmp,S.maxmp);
   pet.x=S.px-30; pet.y=S.py-26; pet.carry=0;
   Object.assign(heroMotion,{vx:0,vy:0,speed:0,phase:0,dirX:S.facing,dirY:0,lean:0,hit:0,hitSide:1,lastX:S.px,lastY:S.py});
   AU.init(); AU.resume();
