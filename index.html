@@ -347,7 +347,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.41</div>
+  <div id="buildVer">ver.0.42</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -792,6 +792,27 @@ function aoeAttack(){
   AU.swing(step); if(critAny)AU.crit(); else if(hitAny)AU.hit();
   damageBossRanged(dmgMul);
 }
+// Auto-play is deliberately a stationary farming stance: a gentle, wide spell
+// keeps enemies at bay without making the hero wander off across the map.
+function autoStationaryCast(){
+  if(!spendMana(5,true)) return false;
+  const radius=265, damage=Math.max(1,Math.floor(atkCalc()*.34));
+  let hit=false;
+  for(const m of monsters){
+    if(Math.hypot(m.x-S.px,m.y-S.py)<radius+m.r){
+      const crit=Math.random()<critCalc()*.45;
+      const dealt=Math.floor(damage*(crit?critMul():1));
+      m.hp-=dealt; hit=true;
+      addFct(m.x,m.y-m.r-6,(crit?'⚡':'')+dealt,crit?'#bda8ff':'#b6d5ff',crit);
+    }
+  }
+  if(S.inDungeon&&D){
+    const target=D.boss||(D.seal&&D.seal.hp>0?D.seal:null);
+    if(target&&Math.hypot(target.x-S.px,target.y-S.py)<radius+target.r){ target.hp-=damage; hit=true; addFct(target.x,target.y-target.r-8,damage,'#b6d5ff'); }
+  }
+  if(hit){ slashes.push({x:S.px,y:S.py,life:1,r:radius,dir:S.facing,step:4,kind:'staff'}); burst(S.px,S.py,'#9ebfff',9,2.2); if(window.AU)AU.cast(); }
+  return hit;
+}
 atkBtn.addEventListener('touchstart',e=>{e.preventDefault();atkHeld=true;aoeAttack();},{passive:false});
 atkBtn.addEventListener('touchend',e=>{e.preventDefault();atkHeld=false;},{passive:false});
 atkBtn.addEventListener('mousedown',e=>{atkHeld=true;aoeAttack();});
@@ -821,7 +842,7 @@ document.getElementById('mExit').onclick=()=>{ if(S.inDungeon){ flash('RETREAT',
 document.getElementById('mSound').onclick=()=>AU.toggle();
 document.getElementById('mAuto').onclick=()=>{ S.auto=!S.auto; const el=document.getElementById('mAuto');
   el.style.borderColor=S.auto?'#39e06a':'#6b4a22'; el.style.color=S.auto?'#9dff8a':'#e8d8a8'; el.style.boxShadow=S.auto?'0 0 10px #39e06a':'0 0 6px #000';
-  toast(S.auto?'💤 放置プレイ ON（自動で戦う）':'放置プレイ OFF'); };
+  toast(S.auto?'💤 定点狩り ON（移動せず広範囲スキル）':'定点狩り OFF'); };
 document.getElementById('mCodex').onclick=()=>openPanel('codexPanel');
 document.getElementById('saveBtn').onclick=()=>{ saveGame(); toast('💾 セーブしました'); };
 document.getElementById('wipeBtn').onclick=()=>{ wipeSave(); toast('🗑 データ消去（次回起動から反映）'); };
@@ -1526,21 +1547,14 @@ function update(dt){
   // move
   const sp=(3.4+S.agi*0.02)*dt;
   if(stick.mag>0.08){ S.px+=stick.dx*sp*stick.mag; S.py+=stick.dy*sp*stick.mag; if(Math.abs(stick.dx)>0.1)S.facing=stick.dx>0?1:-1; }
-  // ---- auto-play (放置) : drives the hero when the stick is idle ----
+  // ---- auto-play: stationary wide-area farming when the stick is idle ----
   if(S.auto && stick.mag<0.08){
     if(S.hp<S.maxhp*0.32 && S.pots>0) usePotion(true);
-    let tx=null,ty=null;
-    if(S.inDungeon && D && D.boss){ tx=D.boss.x; ty=D.boss.y; }
-    else if(S.inDungeon && D && D.seal && D.seal.hp>0){ tx=D.seal.x; ty=D.seal.y; }
-    else { let nd=1e9,nm=null; for(const m of monsters){ const d=Math.hypot(m.x-S.px,m.y-S.py); if(d<nd){nd=d;nm=m;} } if(nm){ tx=nm.x; ty=nm.y; } }
-    if(tx===null){ // no enemy: walk to nearest loot
-      let nd=1e9,nb=null; for(const d of drops){ if(d.type==='zen')continue; const dd=Math.hypot(d.x-S.px,d.y-S.py); if(dd<nd){nd=dd;nb=d;} }
-      if(nb){ tx=nb.x; ty=nb.y; }
-    }
-    if(tx!==null){ const dx=tx-S.px,dy=ty-S.py,d=Math.hypot(dx,dy)||1;
-      if(d>62){ S.px+=dx/d*sp; S.py+=dy/d*sp; if(Math.abs(dx)>4)S.facing=dx>0?1:-1; }
-      autoAtkCd-=dt; if(autoAtkCd<=0){ aoeAttack(); autoAtkCd=attackCooldown(42); }
-    }
+    let target=S.inDungeon&&D?(D.boss||(D.seal&&D.seal.hp>0?D.seal:null)):null, nd=1e9;
+    if(!target) for(const m of monsters){ const d=Math.hypot(m.x-S.px,m.y-S.py); if(d<nd){nd=d;target=m;} }
+    if(target && Math.abs(target.x-S.px)>4) S.facing=target.x>S.px?1:-1;
+    autoAtkCd-=dt;
+    if(autoAtkCd<=0){ autoStationaryCast(); autoAtkCd=attackCooldown(58); }
   }
   // hired mercenary: follows, fights from range, and can be killed permanently for this expedition
   if(mercActive()){
