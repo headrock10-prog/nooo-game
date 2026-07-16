@@ -18,18 +18,18 @@
     .promoteChoice{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99;width:min(92vw,360px);padding:14px;border:2px solid #f3cd70;border-radius:14px;background:#18232aeF;box-shadow:0 8px 30px #000c;text-align:center;color:#fff0c4;font-weight:bold}.promoteChoice div{margin-bottom:9px}.promoteChoice button{margin:0 5px;padding:9px 18px;border:1px solid #f5d278;border-radius:8px;background:#7f332d;color:#fff6d9;font-weight:bold;cursor:pointer}.promoteChoice button:last-child{background:#31485e}
     .cell.enemyCan{box-shadow:inset 0 0 0 3px #76cdf5!important;background:#b4dded!important}.cell.enemyCan:after{background:#4bb8edbb!important}.autoBar{display:flex;justify-content:center;margin:8px 0 -5px}.autoBar button{padding:7px 13px;border:1px solid #e8c76b;border-radius:8px;background:#213d50;color:#fff2bf;font-weight:bold;cursor:pointer}.autoBar button.on{background:#8c3932}
     .chapterOverlay{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;background:#061016e8;animation:chapterIn .35s ease-out}.chapterCard{width:min(92vw,430px);overflow:hidden;border:2px solid #f3c75b;border-radius:18px;background:linear-gradient(145deg,#263842,#10191e);box-shadow:0 0 42px #f2ba4b55;text-align:center}.chapterCard img{display:block;width:100%;max-height:310px;object-fit:cover;object-position:center}.chapterCard .vs{margin:14px 0 4px;color:#ffe08b;font:700 30px serif;letter-spacing:.14em;text-shadow:0 0 14px #ffd25b;animation:flashVs .75s ease-in-out infinite alternate}.chapterCard h2{margin:3px 12px 6px;color:#fff0bd}.chapterCard p{margin:0 18px 12px;color:#cde9ee;font-size:13px}.chapterCard button{margin:0 0 17px;padding:10px 22px;border:1px solid #f5d26e;border-radius:8px;background:#85352e;color:#fff7d3;font-weight:bold;cursor:pointer}@keyframes flashVs{to{filter:brightness(1.45);scale:1.06}}@keyframes chapterIn{from{opacity:0;scale:.9}to{opacity:1;scale:1}}
-    .cardBar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin:9px 0 0}.cardBar button{padding:6px 8px;border:1px solid #b98948;border-radius:7px;background:#382b45;color:#fff1c2;font-size:11px;cursor:pointer}.cardBar button.armed{outline:2px solid #7fd8ff;background:#24516a}.cardBar button:disabled{opacity:.55;cursor:default}
+    .cardBar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin:9px 0 0}.cardBar button{padding:6px 8px;border:1px solid #b98948;border-radius:7px;background:#382b45;color:#fff1c2;font-size:11px;cursor:pointer}.cardBar button.armed{outline:2px solid #7fd8ff;background:#24516a}.cardBar button:disabled{opacity:.55;cursor:default}.lessonBar{margin:8px 4px 0;padding:7px 10px;border:1px solid #578ea0;border-radius:8px;background:#14303a;color:#d9f6ff;font-size:12px;text-align:center}.lessonBar.done{border-color:#e8c76b;background:#493b1f;color:#fff1bf}
   `;
   document.head.append(css);
 
   const bosses=[
-    {name:'海賊女王',place:'港湾航路',image:'boss-harbor-pirate-queen.png',card:'潮目を戻す'},
-    {name:'反乱軍将軍',place:'豊穣の平原',image:'boss-plains-rebel-general.png',card:'蜂起の鎮圧'},
-    {name:'山賊将',place:'山道関所',image:'boss-mountain-warlord.png',card:'山道封鎖'},
-    {name:'城塞の主',place:'王都城塞',image:'terrain-fortified-castle.png',card:'王都の号令'}
+    {name:'海賊女王',place:'港湾航路',image:'boss-harbor-pirate-queen.png',card:'潮目を戻す',lesson:'港の守り：王を左へ二歩逃がし、囲いの入口を作ろう。'},
+    {name:'反乱軍将軍',place:'豊穣の平原',image:'boss-plains-rebel-general.png',card:'蜂起の鎮圧',lesson:'霧の平原：敵駒に触れて、青い移動範囲を偵察しよう。'},
+    {name:'山賊将',place:'山道関所',image:'boss-mountain-warlord.png',card:'山道封鎖',lesson:'断崖の橋：桂馬を一度動かし、飛び越える動きを覚えよう。'},
+    {name:'城塞の主',place:'王都城塞',image:'terrain-fortified-castle.png',card:'王都の号令',lesson:'捕虜交換：敵駒を取ったあと、持ち駒を盤上へ戻そう。'}
   ];
   let campaign={stage:0,loop:1,cards:{}}, winAction='retry';
-  let state=[], side='p', selected=null, hands={p:[],c:[]}, over=false, lastFx=null, pendingPromotion=null, autoMode=false, autoTimer=null, history=[], cardUse=null, frozenIndex=null, goldBoostIndex=null;
+  let state=[], side='p', selected=null, hands={p:[],c:[]}, over=false, lastFx=null, pendingPromotion=null, autoMode=false, autoTimer=null, history=[], cardUse=null, frozenIndex=null, goldBoostIndex=null, lessonStep=0, lessonDone=false;
   const boss=()=>bosses[campaign.stage];
   const piece=(type,owner,p=false)=>({type,owner,p});
   const xy=i=>[i%9,Math.floor(i/9)], ix=(x,y)=>y*9+x;
@@ -41,7 +41,7 @@
   const lastTwo=(owner,index)=>owner==='p'?Math.floor(index/9)<=1:Math.floor(index/9)>=7;
   const goldDirs=owner=>{const d=dir(owner);return [[0,d],[-1,d],[1,d],[-1,0],[1,0],[0,-d]]};
   function setup(){
-    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null; autoMode=false; history=[];cardUse=null;frozenIndex=null;goldBoostIndex=null;if(autoTimer)clearTimeout(autoTimer); autoTimer=null;$('win').classList.remove('show');
+    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null; autoMode=false; history=[];cardUse=null;frozenIndex=null;goldBoostIndex=null;lessonStep=0;lessonDone=false;if(autoTimer)clearTimeout(autoTimer); autoTimer=null;$('win').classList.remove('show');
     const back=['L','N','S','G','K','G','S','N','L'];
     back.forEach((t,x)=>{state[ix(x,8)]=piece(t,'p');state[ix(x,0)]=piece(t,'c')});
     state[ix(1,7)]=piece('R','p');state[ix(7,7)]=piece('B','p');state[ix(1,1)]=piece('B','c');state[ix(7,1)]=piece('R','c');
@@ -51,7 +51,7 @@
   function showChapter(){
     const old=$('chapterOverlay');if(old)old.remove();if(over)return;
     const box=document.createElement('div');box.id='chapterOverlay';box.className='chapterOverlay';
-    box.innerHTML=`<section class="chapterCard"><img src="./${boss().image}" alt="${boss().name}"><div class="vs">VS ${boss().name}</div><h2>第${campaign.loop}周・${boss().place}</h2><p>勝利報酬：一回こっきりの戦術カード「${boss().card}」</p></section>`;
+    box.innerHTML=`<section class="chapterCard"><img src="./${boss().image}" alt="${boss().name}"><div class="vs">VS ${boss().name}</div><h2>第${campaign.loop}周・${boss().place}</h2><p>航路課題：${boss().lesson}</p><p>勝利報酬：一回こっきりの戦術カード「${boss().card}」</p></section>`;
     const go=document.createElement('button');go.textContent='戦闘開始';go.onclick=()=>box.remove();box.querySelector('.chapterCard').append(go);document.body.append(box);
   }
   const say=t=>guide.textContent=t;
@@ -75,6 +75,14 @@
   }
   function legalFor(owner,from,to){const old=side;side=owner;const ok=legal(from,to);side=old;return ok;}
   function saveHistory(){history.push({state:state.map(p=>p?{...p}:null),hands:{p:[...hands.p],c:[...hands.c]}});if(history.length>4)history.shift();}
+  function finishLesson(message){lessonDone=true;render();say(`航路課題・達成！ ${message}`);}
+  function checkLesson(action,p,to,captured){
+    if(lessonDone)return;
+    if(campaign.stage===0&&action==='move'&&p.type==='K'&&Math.floor(to/9)===8&&to%9<=2)finishLesson('王を端へ寄せました。これが美濃囲いの入口です。');
+    if(campaign.stage===2&&action==='move'&&p.type==='N')finishLesson('桂馬は前へ二つ、横へ一つ。駒を飛び越えられます。');
+    if(campaign.stage===3&&action==='capture'){lessonStep=1;render();say('敵駒を捕虜にしました。次は下の持ち駒から盤上へ戻してみよう。');}
+    if(campaign.stage===3&&action==='drop'&&lessonStep===1)finishLesson('持ち駒を再配置しました。取った駒は味方として使えます。');
+  }
   function spendCard(name){campaign.cards[name]--;if(campaign.cards[name]<=0)delete campaign.cards[name];cardUse=null;}
   function activateCard(name){
     if(over||side!=='p'||autoMode||!campaign.cards[name])return;
@@ -140,9 +148,9 @@
       if(!auto&&!forced){pendingPromotion={to};selected=null;render();say('この駒は成れます。成りますか？');return;}
       if(auto?(p.type==='P'||p.type==='R'||p.type==='B'||forced):forced)p.p=true;
     }
-    selected=null; render();nextTurn();
+    if(p.owner==='p'&&!auto)checkLesson(captured?'capture':'move',p,to,!!captured);selected=null; render();nextTurn();
   }
-  function drop(owner,type,to){if(owner==='p')saveHistory();state[to]=piece(type,owner);const n=hands[owner].indexOf(type);if(n>=0)hands[owner].splice(n,1);selected=null;render();if(owner==='p'){side='c';render();say('敵軍が盤面を見ています…');setTimeout(aiTurn,520)}else{side='p';render();say('あなたの番です。')}}
+  function drop(owner,type,to){if(owner==='p')saveHistory();state[to]=piece(type,owner);const n=hands[owner].indexOf(type);if(n>=0)hands[owner].splice(n,1);if(owner==='p')checkLesson('drop',state[to],to,false);selected=null;render();if(owner==='p'){side='c';render();say('敵軍が盤面を見ています…');setTimeout(aiTurn,520)}else{side='p';render();say('あなたの番です。')}}
   function onCell(i){
     if(over||side!=='p'||pendingPromotion||autoMode)return;
     if(cardUse==='蜂起の鎮圧'){
@@ -156,7 +164,7 @@
     }
     if(selected&&selected.kind==='drop'){if(dropAllowed('p',selected.type,i))drop('p',selected.type,i);return;}
     if(selected&&selected.kind==='move'&&legal(selected.from,i)){move(selected.from,i);return;}
-    if(state[i]&&state[i].owner==='c'){selected={kind:'preview',from:i};render();say('敵の駒が動ける範囲を青く表示しています。');return;}
+    if(state[i]&&state[i].owner==='c'){selected={kind:'preview',from:i};render();if(campaign.stage===1&&!lessonDone)finishLesson('敵の利きを読めました。青いマスには注意して進みましょう。');else say('敵の駒が動ける範囲を青く表示しています。');return;}
     if(state[i]&&state[i].owner==='p'){selected={kind:'move',from:i};render();say('光るマスが行き先です。');}
   }
   function allMoves(owner){const out=[];const old=side;side=owner;state.forEach((p,from)=>{if(p&&p.owner===owner&&!(owner==='c'&&from===frozenIndex))for(let to=0;to<81;to++)if(legal(from,to))out.push({from,to});});side=old;return out;}
@@ -174,6 +182,7 @@
     drawHand(myHand,'p');drawHand(aiHand,'c');status.textContent=over?'対局終了':pendingPromotion?'成りを選択':autoMode?'AutoPlay中':'コンピュータ思考中';if(!pendingPromotion&&!over&&side==='p'&&!autoMode)status.textContent='あなたの番';
     let autoBar=$('autoBar');if(!autoBar){autoBar=document.createElement('div');autoBar.id='autoBar';autoBar.className='autoBar';guide.before(autoBar)}autoBar.innerHTML='';const autoButton=document.createElement('button');autoButton.textContent=autoMode?'AutoPlay 停止':'AutoPlay（観戦）';autoButton.className=autoMode?'on':'';autoButton.onclick=toggleAuto;autoBar.append(autoButton);
     let cardBar=$('cardBar');if(!cardBar){cardBar=document.createElement('div');cardBar.id='cardBar';cardBar.className='cardBar';guide.before(cardBar)}cardBar.innerHTML='';const cardNames=['潮目を戻す','蜂起の鎮圧','山道封鎖','王都の号令'];cardNames.forEach(name=>{const count=campaign.cards[name]||0;if(!count)return;const b=document.createElement('button');b.textContent=`${name} ×${count}`;b.className=cardUse===name?'armed':'';b.onclick=()=>activateCard(name);cardBar.append(b)});
+    let lessonBar=$('lessonBar');if(!lessonBar){lessonBar=document.createElement('div');lessonBar.id='lessonBar';lessonBar.className='lessonBar';guide.before(lessonBar)}lessonBar.className='lessonBar'+(lessonDone?' done':'');lessonBar.textContent=lessonDone?'航路課題：達成済み ✓':`航路課題：${boss().lesson}`;
     const old=$('promotionChoice');if(old)old.remove();if(pendingPromotion){const box=document.createElement('div');box.id='promotionChoice';box.className='promoteChoice';box.innerHTML='<div>成りを選んでください</div>';const yes=document.createElement('button');yes.textContent='成る';yes.onclick=()=>choosePromotion(true);const no=document.createElement('button');no.textContent='成らない';no.onclick=()=>choosePromotion(false);box.append(yes,no);document.body.append(box);}
   }
   function drawHand(el,owner){el.innerHTML='';const title=document.createElement('b');title.textContent=owner==='p'?'自軍の持ち駒':'敵軍の持ち駒';el.append(title);hands[owner].forEach((type,n)=>{const b=document.createElement('button');b.textContent=label[type];if(owner==='p'&&selected?.kind==='drop'&&selected.type===type)b.classList.add('sel');b.onclick=()=>{if(owner==='p'&&side==='p'&&!over){selected={kind:'drop',type};render();say(label[type]+'を置く場所を選んでください。');}};el.append(b)});}
