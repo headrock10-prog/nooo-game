@@ -31,7 +31,7 @@
   const lastTwo=(owner,index)=>owner==='p'?Math.floor(index/9)<=1:Math.floor(index/9)>=7;
   const goldDirs=owner=>{const d=dir(owner);return [[0,d],[-1,d],[1,d],[-1,0],[1,0],[0,-d]]};
   function setup(){
-    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null; autoMode=false; if(autoTimer)clearTimeout(autoTimer); autoTimer=null;
+    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null; autoMode=false; if(autoTimer)clearTimeout(autoTimer); autoTimer=null;$('win').classList.remove('show');
     const back=['L','N','S','G','K','G','S','N','L'];
     back.forEach((t,x)=>{state[ix(x,8)]=piece(t,'p');state[ix(x,0)]=piece(t,'c')});
     state[ix(1,7)]=piece('R','p');state[ix(7,7)]=piece('B','p');state[ix(1,1)]=piece('B','c');state[ix(7,1)]=piece('R','c');
@@ -121,5 +121,7 @@
     const old=$('promotionChoice');if(old)old.remove();if(pendingPromotion){const box=document.createElement('div');box.id='promotionChoice';box.className='promoteChoice';box.innerHTML='<div>成りを選んでください</div>';const yes=document.createElement('button');yes.textContent='成る';yes.onclick=()=>choosePromotion(true);const no=document.createElement('button');no.textContent='成らない';no.onclick=()=>choosePromotion(false);box.append(yes,no);document.body.append(box);}
   }
   function drawHand(el,owner){el.innerHTML='';const title=document.createElement('b');title.textContent=owner==='p'?'自軍の持ち駒':'敵軍の持ち駒';el.append(title);hands[owner].forEach((type,n)=>{const b=document.createElement('button');b.textContent=label[type];if(owner==='p'&&selected?.kind==='drop'&&selected.type===type)b.classList.add('sel');b.onclick=()=>{if(owner==='p'&&side==='p'&&!over){selected={kind:'drop',type};render();say(label[type]+'を置く場所を選んでください。');}};el.append(b)});}
+  const restartButton=$('win').querySelector('button');
+  if(restartButton)restartButton.addEventListener('click',event=>{event.preventDefault();setup();});
   setup();
 })();
