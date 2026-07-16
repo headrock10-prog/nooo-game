@@ -18,7 +18,7 @@
     .promoteChoice{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99;width:min(92vw,360px);padding:14px;border:2px solid #f3cd70;border-radius:14px;background:#18232aeF;box-shadow:0 8px 30px #000c;text-align:center;color:#fff0c4;font-weight:bold}.promoteChoice div{margin-bottom:9px}.promoteChoice button{margin:0 5px;padding:9px 18px;border:1px solid #f5d278;border-radius:8px;background:#7f332d;color:#fff6d9;font-weight:bold;cursor:pointer}.promoteChoice button:last-child{background:#31485e}
     .cell.enemyCan{box-shadow:inset 0 0 0 3px #76cdf5!important;background:#b4dded!important}.cell.enemyCan:after{background:#4bb8edbb!important}.autoBar{display:flex;justify-content:center;margin:8px 0 -5px}.autoBar button{padding:7px 13px;border:1px solid #e8c76b;border-radius:8px;background:#213d50;color:#fff2bf;font-weight:bold;cursor:pointer}.autoBar button.on{background:#8c3932}
     .chapterOverlay{position:fixed;inset:0;z-index:120;display:grid;place-items:center;padding:20px;background:#061016e8;animation:chapterIn .35s ease-out}.chapterCard{width:min(92vw,430px);overflow:hidden;border:2px solid #f3c75b;border-radius:18px;background:linear-gradient(145deg,#263842,#10191e);box-shadow:0 0 42px #f2ba4b55;text-align:center}.chapterCard img{display:block;width:100%;max-height:310px;object-fit:cover;object-position:center}.chapterCard .vs{margin:14px 0 4px;color:#ffe08b;font:700 30px serif;letter-spacing:.14em;text-shadow:0 0 14px #ffd25b;animation:flashVs .75s ease-in-out infinite alternate}.chapterCard h2{margin:3px 12px 6px;color:#fff0bd}.chapterCard p{margin:0 18px 12px;color:#cde9ee;font-size:13px}.chapterCard button{margin:0 0 17px;padding:10px 22px;border:1px solid #f5d26e;border-radius:8px;background:#85352e;color:#fff7d3;font-weight:bold;cursor:pointer}@keyframes flashVs{to{filter:brightness(1.45);scale:1.06}}@keyframes chapterIn{from{opacity:0;scale:.9}to{opacity:1;scale:1}}
-    .cardBar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin:9px 0 0}.cardBar button{padding:6px 8px;border:1px solid #b98948;border-radius:7px;background:#382b45;color:#fff1c2;font-size:11px;cursor:pointer}.cardBar button.armed{outline:2px solid #7fd8ff;background:#24516a}.cardBar button:disabled{opacity:.55;cursor:default}.lessonBar{margin:8px 4px 0;padding:7px 10px;border:1px solid #578ea0;border-radius:8px;background:#14303a;color:#d9f6ff;font-size:12px;text-align:center}.lessonBar.done{border-color:#e8c76b;background:#493b1f;color:#fff1bf}
+    .cardBar{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;margin:9px 0 0}.cardBar button{padding:6px 8px;border:1px solid #b98948;border-radius:7px;background:#382b45;color:#fff1c2;font-size:11px;cursor:pointer}.cardBar button.armed{outline:2px solid #7fd8ff;background:#24516a}.cardBar button:disabled{opacity:.55;cursor:default}.lessonBar{margin:8px 4px 0;padding:7px 10px;border:1px solid #578ea0;border-radius:8px;background:#14303a;color:#d9f6ff;font-size:12px;text-align:center}.lessonBar.done{border-color:#e8c76b;background:#493b1f;color:#fff1bf}.saveBar{display:flex;justify-content:center;gap:6px;margin:7px 0 0}.saveBar button{padding:6px 11px;border:1px solid #8cc1d3;border-radius:7px;background:#1e3e4b;color:#e8fbff;font-size:11px;cursor:pointer}
   `;
   document.head.append(css);
 
@@ -52,7 +52,7 @@
     const old=$('chapterOverlay');if(old)old.remove();if(over)return;
     const box=document.createElement('div');box.id='chapterOverlay';box.className='chapterOverlay';
     box.innerHTML=`<section class="chapterCard"><img src="./${boss().image}" alt="${boss().name}"><div class="vs">VS ${boss().name}</div><h2>第${campaign.loop}周・${boss().place}</h2><p>航路課題：${boss().lesson}</p><p>勝利報酬：一回こっきりの戦術カード「${boss().card}」</p></section>`;
-    const go=document.createElement('button');go.textContent='戦闘開始';go.onclick=()=>box.remove();box.querySelector('.chapterCard').append(go);document.body.append(box);
+    const go=document.createElement('button');go.textContent='戦闘開始';go.onclick=()=>box.remove();const card=box.querySelector('.chapterCard');card.append(go);if(hasSave()){const resume=document.createElement('button');resume.textContent='セーブから再開';resume.onclick=()=>{box.remove();loadGame()};card.append(resume)}document.body.append(box);
   }
   const say=t=>guide.textContent=t;
   function shown(p){return p.p?(promoted[p.type]||label[p.type]):label[p.type]}
@@ -82,6 +82,15 @@
     if(campaign.stage===2&&action==='move'&&p.type==='N')finishLesson('桂馬は前へ二つ、横へ一つ。駒を飛び越えられます。');
     if(campaign.stage===3&&action==='capture'){lessonStep=1;render();say('敵駒を捕虜にしました。次は下の持ち駒から盤上へ戻してみよう。');}
     if(campaign.stage===3&&action==='drop'&&lessonStep===1)finishLesson('持ち駒を再配置しました。取った駒は味方として使えます。');
+  }
+  function hasSave(){try{return !!localStorage.getItem('ranseiKouroSave')}catch{return false}}
+  function saveGame(){
+    try{localStorage.setItem('ranseiKouroSave',JSON.stringify({campaign,state,hands,side,history,lessonStep,lessonDone,frozenIndex,goldBoostIndex}));say('航路をセーブしました。次回は「セーブから再開」で戻れます。');}
+    catch{say('この端末ではセーブできませんでした。');}
+  }
+  function loadGame(){
+    try{const data=JSON.parse(localStorage.getItem('ranseiKouroSave'));if(!data)throw new Error();campaign=data.campaign;state=data.state;hands=data.hands;side=data.side;history=data.history||[];lessonStep=data.lessonStep||0;lessonDone=!!data.lessonDone;frozenIndex=data.frozenIndex??null;goldBoostIndex=data.goldBoostIndex??null;selected=null;over=false;pendingPromotion=null;autoMode=false;render();say(`セーブから再開：第${campaign.loop}周・${boss().place}`);return true;}
+    catch{say('再開できるセーブがありません。');return false;}
   }
   function spendCard(name){campaign.cards[name]--;if(campaign.cards[name]<=0)delete campaign.cards[name];cardUse=null;}
   function activateCard(name){
@@ -183,6 +192,7 @@
     let autoBar=$('autoBar');if(!autoBar){autoBar=document.createElement('div');autoBar.id='autoBar';autoBar.className='autoBar';guide.before(autoBar)}autoBar.innerHTML='';const autoButton=document.createElement('button');autoButton.textContent=autoMode?'AutoPlay 停止':'AutoPlay（観戦）';autoButton.className=autoMode?'on':'';autoButton.onclick=toggleAuto;autoBar.append(autoButton);
     let cardBar=$('cardBar');if(!cardBar){cardBar=document.createElement('div');cardBar.id='cardBar';cardBar.className='cardBar';guide.before(cardBar)}cardBar.innerHTML='';const cardNames=['潮目を戻す','蜂起の鎮圧','山道封鎖','王都の号令'];cardNames.forEach(name=>{const count=campaign.cards[name]||0;if(!count)return;const b=document.createElement('button');b.textContent=`${name} ×${count}`;b.className=cardUse===name?'armed':'';b.onclick=()=>activateCard(name);cardBar.append(b)});
     let lessonBar=$('lessonBar');if(!lessonBar){lessonBar=document.createElement('div');lessonBar.id='lessonBar';lessonBar.className='lessonBar';guide.before(lessonBar)}lessonBar.className='lessonBar'+(lessonDone?' done':'');lessonBar.textContent=lessonDone?'航路課題：達成済み ✓':`航路課題：${boss().lesson}`;
+    let saveBar=$('saveBar');if(!saveBar){saveBar=document.createElement('div');saveBar.id='saveBar';saveBar.className='saveBar';guide.before(saveBar)}saveBar.innerHTML='';const saveButton=document.createElement('button');saveButton.textContent='セーブ';saveButton.onclick=saveGame;saveBar.append(saveButton);if(hasSave()){const loadButton=document.createElement('button');loadButton.textContent='セーブから再開';loadButton.onclick=loadGame;saveBar.append(loadButton);}
     const old=$('promotionChoice');if(old)old.remove();if(pendingPromotion){const box=document.createElement('div');box.id='promotionChoice';box.className='promoteChoice';box.innerHTML='<div>成りを選んでください</div>';const yes=document.createElement('button');yes.textContent='成る';yes.onclick=()=>choosePromotion(true);const no=document.createElement('button');no.textContent='成らない';no.onclick=()=>choosePromotion(false);box.append(yes,no);document.body.append(box);}
   }
   function drawHand(el,owner){el.innerHTML='';const title=document.createElement('b');title.textContent=owner==='p'?'自軍の持ち駒':'敵軍の持ち駒';el.append(title);hands[owner].forEach((type,n)=>{const b=document.createElement('button');b.textContent=label[type];if(owner==='p'&&selected?.kind==='drop'&&selected.type===type)b.classList.add('sel');b.onclick=()=>{if(owner==='p'&&side==='p'&&!over){selected={kind:'drop',type};render();say(label[type]+'を置く場所を選んでください。');}};el.append(b)});}
