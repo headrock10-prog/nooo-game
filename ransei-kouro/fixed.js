@@ -16,10 +16,11 @@
     .hand button{margin:3px 2px 0 0;padding:4px 7px;border:1px solid #d7b263;border-radius:6px;background:#3c2420;color:#fff3cc;font:700 14px serif;cursor:pointer}.hand button.sel{outline:2px solid #fff0a1;background:#783b31}
     .hitFx{position:absolute;inset:0;z-index:9;display:grid;place-items:center;font-size:34px;pointer-events:none;animation:hitFx .65s ease-out forwards}@keyframes hitFx{0%{opacity:0;scale:.3}30%{opacity:1;scale:1.25}100%{opacity:0;scale:1.8}}
     .promoteChoice{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:99;width:min(92vw,360px);padding:14px;border:2px solid #f3cd70;border-radius:14px;background:#18232aeF;box-shadow:0 8px 30px #000c;text-align:center;color:#fff0c4;font-weight:bold}.promoteChoice div{margin-bottom:9px}.promoteChoice button{margin:0 5px;padding:9px 18px;border:1px solid #f5d278;border-radius:8px;background:#7f332d;color:#fff6d9;font-weight:bold;cursor:pointer}.promoteChoice button:last-child{background:#31485e}
+    .cell.enemyCan{box-shadow:inset 0 0 0 3px #76cdf5!important;background:#b4dded!important}.cell.enemyCan:after{background:#4bb8edbb!important}.autoBar{display:flex;justify-content:center;margin:8px 0 -5px}.autoBar button{padding:7px 13px;border:1px solid #e8c76b;border-radius:8px;background:#213d50;color:#fff2bf;font-weight:bold;cursor:pointer}.autoBar button.on{background:#8c3932}
   `;
   document.head.append(css);
 
-  let state=[], side='p', selected=null, hands={p:[],c:[]}, over=false, lastFx=null, pendingPromotion=null;
+  let state=[], side='p', selected=null, hands={p:[],c:[]}, over=false, lastFx=null, pendingPromotion=null, autoMode=false, autoTimer=null;
   const piece=(type,owner,p=false)=>({type,owner,p});
   const xy=i=>[i%9,Math.floor(i/9)], ix=(x,y)=>y*9+x;
   const inside=(x,y)=>x>=0&&x<9&&y>=0&&y<9;
@@ -30,7 +31,7 @@
   const lastTwo=(owner,index)=>owner==='p'?Math.floor(index/9)<=1:Math.floor(index/9)>=7;
   const goldDirs=owner=>{const d=dir(owner);return [[0,d],[-1,d],[1,d],[-1,0],[1,0],[0,-d]]};
   function setup(){
-    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null;
+    state=Array(81).fill(null); hands={p:[],c:[]}; side='p'; selected=null; over=false; lastFx=null; pendingPromotion=null; autoMode=false; if(autoTimer)clearTimeout(autoTimer); autoTimer=null;
     const back=['L','N','S','G','K','G','S','N','L'];
     back.forEach((t,x)=>{state[ix(x,8)]=piece(t,'p');state[ix(x,0)]=piece(t,'c')});
     state[ix(1,7)]=piece('R','p');state[ix(7,7)]=piece('B','p');state[ix(1,1)]=piece('B','c');state[ix(7,1)]=piece('R','c');
@@ -56,6 +57,7 @@
     if(t==='R'){if((dx===0) !== (dy===0))return clearPath(from,to);return p.p&&Math.abs(dx)===1&&Math.abs(dy)===1;}
     return false;
   }
+  function legalFor(owner,from,to){const old=side;side=owner;const ok=legal(from,to);side=old;return ok;}
   function dropAllowed(owner,type,to){
     if(state[to])return false; const y=Math.floor(to/9);
     if((type==='P'||type==='L')&&lastRank(owner,to))return false;if(type==='N'&&lastTwo(owner,to))return false;
@@ -66,8 +68,23 @@
   function flash(index,owner){lastFx={index,owner};setTimeout(()=>{lastFx=null;render()},680);}
   function nextTurn(){
     if(over)return;
-    if(side==='p'){side='c';render();say('敵軍が盤面を見ています…');setTimeout(aiTurn,520)}else{side='p';render();say('あなたの番です。')}
+    if(side==='p'){side='c';render();say('敵軍が盤面を見ています…');setTimeout(aiTurn,520)}else{side='p';render();say('あなたの番です。');queueAuto()}
   }
+  function queueAuto(){
+    if(!autoMode||over||side!=='p'||pendingPromotion)return;
+    if(autoTimer)clearTimeout(autoTimer);
+    autoTimer=setTimeout(autoPlayTurn,620);
+  }
+  function autoPlayTurn(){
+    autoTimer=null;if(!autoMode||over||side!=='p'||pendingPromotion)return;
+    const moves=allMoves('p');
+    if(!moves.length){autoMode=false;render();say('AutoPlay: 動かせる駒がありません。');return;}
+    moves.sort((a,b)=>(state[b.to]?value[state[b.to].type]:0)-(state[a.to]?value[state[a.to].type]:0));
+    const top=state[moves[0].to]?value[state[moves[0].to].type]:0;
+    const best=moves.filter(m=>(state[m.to]?value[state[m.to].type]:0)===top);
+    const m=best[Math.floor(Math.random()*best.length)];move(m.from,m.to,true);
+  }
+  function toggleAuto(){autoMode=!autoMode;selected=null;if(autoTimer)clearTimeout(autoTimer);autoTimer=null;render();if(autoMode){say('AutoPlay中：両軍を自動で進めます。');queueAuto()}else say('AutoPlayを停止しました。');}
   function choosePromotion(yes){if(!pendingPromotion)return;const p=state[pendingPromotion.to];if(p&&yes)p.p=true;pendingPromotion=null;render();nextTurn();}
   function move(from,to,auto=false){
     const p=state[from], captured=state[to]; state[to]=p;state[from]=null;
@@ -81,9 +98,10 @@
   }
   function drop(owner,type,to){state[to]=piece(type,owner);const n=hands[owner].indexOf(type);if(n>=0)hands[owner].splice(n,1);selected=null;render();if(owner==='p'){side='c';render();say('敵軍が盤面を見ています…');setTimeout(aiTurn,520)}else{side='p';render();say('あなたの番です。')}}
   function onCell(i){
-    if(over||side!=='p'||pendingPromotion)return;
+    if(over||side!=='p'||pendingPromotion||autoMode)return;
     if(selected&&selected.kind==='drop'){if(dropAllowed('p',selected.type,i))drop('p',selected.type,i);return;}
     if(selected&&selected.kind==='move'&&legal(selected.from,i)){move(selected.from,i);return;}
+    if(state[i]&&state[i].owner==='c'){selected={kind:'preview',from:i};render();say('敵の駒が動ける範囲を青く表示しています。');return;}
     if(state[i]&&state[i].owner==='p'){selected={kind:'move',from:i};render();say('光るマスが行き先です。');}
   }
   function allMoves(owner){const out=[];const old=side;side=owner;state.forEach((p,from)=>{if(p&&p.owner===owner)for(let to=0;to<81;to++)if(legal(from,to))out.push({from,to});});side=old;return out;}
@@ -94,11 +112,12 @@
     else{side='p';render();say('あなたの番です。');}
   }
   function render(){
-    board.innerHTML='';state.forEach((p,i)=>{const cell=document.createElement('div');cell.className='cell';if(selected?.kind==='move'&&legal(selected.from,i))cell.classList.add('can');if(selected?.kind==='move'&&selected.from===i)cell.classList.add('pick');if(selected?.kind==='drop'&&dropAllowed('p',selected.type,i))cell.classList.add('can');cell.onclick=()=>onCell(i);
+    board.innerHTML='';state.forEach((p,i)=>{const cell=document.createElement('div');cell.className='cell';if(selected?.kind==='move'&&legal(selected.from,i))cell.classList.add('can');if(selected?.kind==='preview'&&legalFor('c',selected.from,i))cell.classList.add('enemyCan');if((selected?.kind==='move'||selected?.kind==='preview')&&selected.from===i)cell.classList.add('pick');if(selected?.kind==='drop'&&dropAllowed('p',selected.type,i))cell.classList.add('can');cell.onclick=()=>onCell(i);
       if(p){const u=document.createElement('div'),f=frame[p.type]||frame.P;u.className='unit '+(p.owner==='c'?'blue':'');u.style.backgroundImage="url('./piece-characters.png')";u.style.backgroundSize='400% 200%';u.style.backgroundPosition=`${f[0]}% ${f[1]}%`;const tag=document.createElement('span');tag.className='pieceTag '+(p.owner==='c'?'enemy ':'')+(p.p?'promoted':'');tag.textContent=shown(p);cell.title=(p.owner==='p'?'自軍 ':'敵軍 ')+shown(p);cell.append(u,tag)}
       if(lastFx&&lastFx.index===i){const fx=document.createElement('span');fx.className='hitFx';fx.textContent=lastFx.owner==='p'?'✦':'💥';cell.append(fx)}board.append(cell);
     });
-    drawHand(myHand,'p');drawHand(aiHand,'c');status.textContent=over?'対局終了':pendingPromotion?'成りを選択':'コンピュータ思考中';if(!pendingPromotion&&!over&&side==='p')status.textContent='あなたの番';
+    drawHand(myHand,'p');drawHand(aiHand,'c');status.textContent=over?'対局終了':pendingPromotion?'成りを選択':autoMode?'AutoPlay中':'コンピュータ思考中';if(!pendingPromotion&&!over&&side==='p'&&!autoMode)status.textContent='あなたの番';
+    let autoBar=$('autoBar');if(!autoBar){autoBar=document.createElement('div');autoBar.id='autoBar';autoBar.className='autoBar';guide.before(autoBar)}autoBar.innerHTML='';const autoButton=document.createElement('button');autoButton.textContent=autoMode?'AutoPlay 停止':'AutoPlay（観戦）';autoButton.className=autoMode?'on':'';autoButton.onclick=toggleAuto;autoBar.append(autoButton);
     const old=$('promotionChoice');if(old)old.remove();if(pendingPromotion){const box=document.createElement('div');box.id='promotionChoice';box.className='promoteChoice';box.innerHTML='<div>成りを選んでください</div>';const yes=document.createElement('button');yes.textContent='成る';yes.onclick=()=>choosePromotion(true);const no=document.createElement('button');no.textContent='成らない';no.onclick=()=>choosePromotion(false);box.append(yes,no);document.body.append(box);}
   }
   function drawHand(el,owner){el.innerHTML='';const title=document.createElement('b');title.textContent=owner==='p'?'自軍の持ち駒':'敵軍の持ち駒';el.append(title);hands[owner].forEach((type,n)=>{const b=document.createElement('button');b.textContent=label[type];if(owner==='p'&&selected?.kind==='drop'&&selected.type===type)b.classList.add('sel');b.onclick=()=>{if(owner==='p'&&side==='p'&&!over){selected={kind:'drop',type};render();say(label[type]+'を置く場所を選んでください。');}};el.append(b)});}
