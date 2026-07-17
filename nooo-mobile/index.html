@@ -347,7 +347,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.46</div>
+  <div id="buildVer">ver.0.47</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -1324,27 +1324,46 @@ function exitDungeon(){
   for(let i=0;i<5;i++)spawnMonster();
   saveGame(); updateHUD();
 }
+function grantDungeonRewards(run,b){
+  // 報酬は退出アニメーションより先に、直接セーブデータへ確定させる。
+  // これで後続の描画エラーや安全終了が報酬を消すことはない。
+  if(run.rewardsGranted)return;
+  run.rewardsGranted=true;
+  const zi=Math.max(0,Math.min(BOSSES.length-1,S.dunIdx|0)), runLv=run.level||S.lv;
+  const rewardScale=1+Math.max(0,runLv-S.lv)*.04;
+  CODEX.bosses=CODEX.bosses||{}; CODEX.setsSeen=CODEX.setsSeen||{}; CODEX.ach=CODEX.ach||{};
+  CODEX.bosses[BOSSES[zi].id]=true;
+  // 必ず得られる基礎報酬。地面に落とさないため、退出処理の影響を受けない。
+  gainExp(Math.floor(ZONES[Math.min(ZONES.length-1,zi)].exp*45*rewardScale));
+  S.zen+=Math.floor(2500*(zi+1)*rewardScale);
+  S.jb+=Math.floor((6+zi*3)*rewardScale); S.js+=Math.floor((6+zi*3)*rewardScale);
+  S.jc+=1+zi; S.charm+=1+(zi>2?1:0);
+  // 装備は一個ずつ確定。重複は自動売却され、一個の不具合で残りを失わない。
+  const n=2+(Math.random()<0.55?1:0);
+  for(let i=0;i<n;i++){
+    try{ pickupGear(rollGearPiece(zi,true)); }
+    catch(err){ console.error('Dungeon gear reward recovery',err); S.zen+=1000*(zi+1); }
+  }
+  try{ tryUniqueWeaponDrop(.13,true,zi); }catch(err){ console.error('Dungeon unique reward recovery',err); }
+  try{ tryArchangelDrop(.0065,true); }catch(err){ console.error('Dungeon divine reward recovery',err); }
+  try{ checkAch(); }catch(err){ console.error('Dungeon achievement recovery',err); }
+  updateHUD();
+}
 function bossDefeated(){
   if(!S.inDungeon||!D||D.cleared)return;
   const run=D, b=run.boss;
   run.cleared=true;
   try{
-    if(!b)throw new Error('Boss state was already missing');
-    const rr=b.rewardRar, runLv=run.level||S.lv, rewardScale=1+Math.max(0,runLv-S.lv)*.04;
-    CODEX.bosses[BOSSES[S.dunIdx].id]=true; checkAch();
-    gainExp(Math.floor(ZONES[Math.min(ZONES.length-1,S.dunIdx)].exp*45*rewardScale));
-    S.zen+=Math.floor(2500*(S.dunIdx+1)*rewardScale); S.jb+=Math.floor((6+S.dunIdx*3)*rewardScale); S.js+=Math.floor((6+S.dunIdx*3)*rewardScale); S.jc+=1+S.dunIdx; S.charm+=1+(S.dunIdx>2?1:0);
-    const n=2+(Math.random()<0.55?1:0);
-    for(let i=0;i<n;i++){ const rar=Math.min(SETS.length-2,rr[0]+((Math.random()*(rr[1]-rr[0]+1))|0)), st=SETS[rar], slot=SLOTS[(Math.random()*SLOTS.length)|0];
-      pickupGear({set:st.id,slot:slot.k,def:Math.round(st.baseDef*slot.mul*(1+Math.random()*.3)),rar:st.rar}); }
-    tryUniqueWeaponDrop(.13,true,S.dunIdx);
-    tryArchangelDrop(.0065,true);
-    flash('DUNGEON CLEAR','#ffd24a',b.name+' を撃破！報酬獲得'); AU.clear();
+    grantDungeonRewards(run,b);
+    flash('DUNGEON CLEAR','#ffd24a',(b&&b.name?b.name:'BOSS')+' を撃破！報酬獲得'); AU.clear();
   }catch(err){
-    console.error('Dungeon-clear recovery',err); toast('討伐報酬を整理して町へ帰還します');
-  }finally{
-    saveGame(); beginDungeonExit(18);
+    // 想定外の不具合でも、最低限の討伐報酬だけは必ず渡す。
+    console.error('Dungeon-clear recovery',err);
+    S.zen+=2500*(Math.max(0,S.dunIdx|0)+1); S.jb+=3; S.js+=3; S.jc+=1;
+    toast('討伐報酬を安全に確定して町へ帰還します'); updateHUD();
   }
+  // セーブは報酬確定後。退出はこの後に開始する。
+  saveGame(); beginDungeonExit(18);
 }
 function damageBossRanged(mul){ mul=mul||1; if(!S.inDungeon||!D) return; const tgt=D.boss||(D.seal&&D.seal.hp>0?D.seal:null); if(!tgt) return;
   const d=Math.hypot(tgt.x-S.px,tgt.y-S.py);
