@@ -139,7 +139,8 @@
 <div id="res">
   💰 <b id="zen">0</b><br>
   <span class="jw">◆祝福</span> <b id="jb">0</b>　<span class="jws">◆霊魂</span> <b id="js">0</b><br>
-  <span class="jwc">◆混沌</span> <b id="jc">0</b>　<span class="chm">護符</span> <b id="ch">0</b>
+  <span class="jwc">◆混沌</span> <b id="jc">0</b>　<span class="chm">護符</span> <b id="ch">0</b><br>
+  <span style="color:#c7a7ff">▣保険証</span> <b id="ins">0</b>
 </div>
 
 <!-- side menu -->
@@ -214,6 +215,8 @@
       <div class="row"><span class="k">必要素材</span><span class="v" style="font-size:12px"><span class="jw">祝福</span><span id="cNeedB">1</span> <span class="jws">霊魂</span><span id="cNeedS">1</span> 💰<span id="cNeedZ">100</span></span></div>
       <label class="row" style="cursor:pointer"><span class="k">護符を使う <small class="small">破壊を防ぐ</small></span>
         <input type="checkbox" id="useCharm" style="width:22px;height:22px"></label>
+      <label class="row" style="cursor:pointer"><span class="k">合成保険証を使う <small class="small">成功率 +25%</small></span>
+        <input type="checkbox" id="useInsurance" style="width:22px;height:22px"></label>
       <div style="text-align:center;margin-top:8px">
         <button class="gbtn" id="doChaos" style="font-size:16px;padding:12px 30px">🔥 合成する</button>
       </div>
@@ -347,7 +350,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.47</div>
+  <div id="buildVer">ver.0.48</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -473,7 +476,8 @@ const S = {
   lv:1, exp:0, expNext:20,
   vit:10, str:10, agi:10, ene:10, statPts:0,
   hp:100, maxhp:100, mp:80, maxmp:80,
-  zen:0, jb:0, js:0, jc:0, charm:0, pots:3,
+  zen:0, jb:0, js:0, jc:0, charm:0, insurance:0, pots:3,
+  masterLv:0, masterExp:0, masterNext:800,
   wep:0,            // legacy mirror of the equipped weapon's enhancement
   wing:0,           // legacy field: wings are retired in favor of accessories
   px:0, py:0,       // world pos
@@ -521,6 +525,7 @@ function saveGame(){ try{ const s=Object.assign({},S); s.inDungeon=false; localS
 function hasSave(){ try{ return !!localStorage.getItem(SAVE_KEY); }catch(e){ return false; } }
 function loadGame(){ try{ const raw=localStorage.getItem(SAVE_KEY); if(!raw) return false; const d=JSON.parse(raw);
   Object.assign(S,d.s); S.inDungeon=false; S.dunIdx=0; D=null; monsters=[]; drops=[];
+  S.insurance=Math.max(0,+S.insurance||0); S.masterLv=Math.max(0,+S.masterLv||0); S.masterExp=Math.max(0,+S.masterExp||0); S.masterNext=Math.max(800,+S.masterNext||800);
   if(d.c) Object.assign(CODEX,d.c); normalizeGearState();
   S.maxhp=maxHpCalc(); S.hp=Math.min(S.hp,S.maxhp); return true; }catch(e){ return false; } }
 function wipeSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
@@ -530,6 +535,7 @@ const ZONES = [
   {name:"デビアス洞窟",   minLv:14, mhp:420, matk:66, exp:48, zen:90, col:"#2a2438", mcol:"#5a4a7a", boss:false},
   {name:"アトランス海溝", minLv:26, mhp:1150,matk:135,exp:110,zen:180,col:"#143040", mcol:"#2a6a8a", boss:false},
   {name:"カランダ火山",   minLv:42, mhp:2900,matk:265,exp:260,zen:380,col:"#3a1810", mcol:"#9a4a22", boss:true},
+  {name:"天穹の神殿",     minLv:70, mhp:7200,matk:520,exp:620,zen:900,col:"#25133d", mcol:"#a46be8", boss:true},
 ];
 function seraphyActive(){ return Date.now()<(S.seraphyUntil||0); }
 function blessedStat(k){ return S[k]+(seraphyActive()?18:0); }
@@ -682,7 +688,7 @@ function setBonus(){
 function attackSpeed(){ return Math.min(2.35,1+blessedStat('agi')*.012+setBonus().atkSpeed+accessoryBonus().atkSpeed); }
 function hasLightningSword(){ return S.gear.weapon?.uniqueWeapon?.id==='lightning_sword'; }
 function attackCooldown(base){ return Math.max(11,Math.round((base||42)/attackSpeed())); }
-function maxHpCalc(){ const a=accessoryBonus(); return Math.floor((80 + blessedStat('vit')*8 + S.lv*12) * (1+setBonus().hpPct/100+a.hpPct)); }
+function maxHpCalc(){ const a=accessoryBonus(); return Math.floor((80 + blessedStat('vit')*8 + S.lv*12) * (1+setBonus().hpPct/100+a.hpPct) * (1+(S.masterLv||0)*.006)); }
 function maxMpCalc(){ return Math.floor(45+blessedStat('ene')*9+S.lv*4); }
 const WINGS=[
   {name:"なし", mul:1.0, eff:"-", icon:"🚫"},
@@ -692,8 +698,9 @@ const WINGS=[
   {name:"破壊の大翼", mul:3.0, eff:"攻撃/防御 +200%", icon:"😈"},
 ];
 function mercBlessActive(){ return Date.now()<(S.mercBlessUntil||0); }
-function atkCalc(){ return Math.floor((10 + blessedStat('str')*1.6 + S.lv*2 + weaponInfo().atk + accessoryBonus().atk) * (1+setBonus().atkPct/100) * (mercBlessActive()?1.16:1)); }
-function defCalc(){ return Math.floor((4 + blessedStat('agi')*0.6 + S.lv*1.2 + gearDefTotal()) * (1+setBonus().defPct/100) * (mercBlessActive()?1.12:1)); }
+function masterScale(){ return 1+(S.masterLv||0)*.012; }
+function atkCalc(){ return Math.floor((10 + blessedStat('str')*1.6 + S.lv*2 + weaponInfo().atk + accessoryBonus().atk) * (1+setBonus().atkPct/100) * masterScale() * (mercBlessActive()?1.16:1)); }
+function defCalc(){ return Math.floor((4 + blessedStat('agi')*0.6 + S.lv*1.2 + gearDefTotal()) * (1+setBonus().defPct/100) * (1+(S.masterLv||0)*.008) * (mercBlessActive()?1.12:1)); }
 function critCalc(){ return Math.min(0.65, 0.03 + blessedStat('ene')*0.004 + setBonus().crit + weaponInfo().crit + accessoryBonus().crit); }
 function critMul(){ return weaponInfo().critMul; }
 function cpCalc(){ let g=0; for(const s of SLOTS){ const it=S.gear[s.k]; if(it) g+=it.def*2+(it.rar+1)*40+gearEnh(it)*40; } return Math.floor(atkCalc()*2 + defCalc()*3 + S.maxhp*0.4 + g); }
@@ -711,7 +718,7 @@ const MERCS={
 function mercActive(){ return !!(S.merc&&S.merc.hp>0&&MERCS[S.merc.type]); }
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++){ const a=Math.random()*6.28, v=(0.6+Math.random()*1.4)*(spd||2.2);
   parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-0.8,life:1,col,r:1.5+Math.random()*2.5}); } }
-const ZKINDS=[ ['slime','bat'], ['wolf','bat'], ['skeleton','imp'], ['fish','skeleton'], ['imp','golem'] ];
+const ZKINDS=[ ['slime','bat'], ['wolf','bat'], ['skeleton','imp'], ['fish','skeleton'], ['imp','golem'], ['golem','imp'] ];
 const AREA_BOSSES=[
   {id:'brute',name:'草原の処刑獣 グラウル',minLv:3,hp:520,atk:21,col:'#6a4a2a',acc:'#ffb35b',shape:'goblin',rar:1},
   {id:'arachne',name:'森蝕みの女王 アラクナ',minLv:8,hp:1900,atk:39,col:'#4d276b',acc:'#d778ff',shape:'spider',rar:2},
@@ -963,13 +970,15 @@ document.getElementById('doChaos').onclick=()=>{
   const ci=chaosInfo(g);
   if(S.jb<ci.needB||S.js<ci.needS||S.zen<ci.needZ){ toast('素材が足りない'); return; }
   const useCharm=document.getElementById('useCharm').checked && S.charm>0;
+  const useInsurance=document.getElementById('useInsurance').checked && S.insurance>0;
   S.jb-=ci.needB; S.js-=ci.needS; S.zen-=ci.needZ;
   if(useCharm) S.charm--;
-  const ok=Math.random()*100<ci.rate;
+  if(useInsurance) S.insurance--;
+  const ok=Math.random()*100<Math.min(100,ci.rate+(useInsurance?25:0));
   if(ok){
     g.enh=gearEnh(g)+1;
     if(g.slot==='weapon'){ CODEX.maxWep=Math.max(CODEX.maxWep,g.enh); checkAch(); }
-    flash('SUCCESS','#39e06a',gearName(g)+' +'+g.enh+' 強化成功！'); AU.success();
+    flash('SUCCESS','#39e06a',gearName(g)+' +'+g.enh+' 強化成功！'+(useInsurance?' 保険証発動':'')); AU.success();
   } else {
     if(ci.destroy && !useCharm){
       g.enh=0; flash('DESTROY','#e23b3b',gearName(g)+' が砕け散った…'); AU.destroy();
@@ -1125,18 +1134,19 @@ function refreshPanels(){
   }
 }
 function updateHUD(){
-  document.getElementById('lvBadge').textContent='Lv.'+S.lv;
+  document.getElementById('lvBadge').textContent='Lv.'+S.lv+(S.masterLv?' M.'+S.masterLv:'');
   document.getElementById('zen').textContent=S.zen.toLocaleString();
   document.getElementById('jb').textContent=S.jb;
   document.getElementById('js').textContent=S.js;
   document.getElementById('jc').textContent=S.jc;
   document.getElementById('ch').textContent=S.charm;
+  document.getElementById('ins').textContent=S.insurance||0;
   document.getElementById('hpfill').style.width=Math.max(0,S.hp/S.maxhp*100)+'%';
   document.getElementById('mpfill').style.width=Math.max(0,S.mp/S.maxmp*100)+'%';
-  document.getElementById('xpfill').style.width=(S.exp/S.expNext*100)+'%';
+  document.getElementById('xpfill').style.width=(S.lv>=100?(S.masterExp/S.masterNext):(S.exp/S.expNext))*100+'%';
   document.getElementById('hptxt').textContent=Math.ceil(S.hp)+' / '+S.maxhp;
   document.getElementById('mptxt').textContent='MP '+Math.ceil(S.mp)+' / '+S.maxmp;
-  document.getElementById('xptxt').textContent='EXP '+Math.floor(S.exp)+' / '+S.expNext;
+  document.getElementById('xptxt').textContent=S.lv>=100?('MASTER EXP '+Math.floor(S.masterExp)+' / '+S.masterNext):('EXP '+Math.floor(S.exp)+' / '+S.expNext);
   document.getElementById('zoneName').textContent=ZONES[S.zoneIdx].name;
   document.getElementById('statDot').style.display=S.statPts>0?'block':'none';
   document.getElementById('gearDot').style.display=S.inv.length>0?'block':'none';
@@ -1149,7 +1159,17 @@ function flash(big,col,sub){ const f=document.getElementById('flash'),t=document
   clearTimeout(flash._t); flash._t=setTimeout(()=>f.classList.remove('show'),750); }
 
 // ---------- progression ----------
+function gainMasterExp(n){
+  S.masterExp+=n;
+  while(S.masterExp>=S.masterNext){
+    S.masterExp-=S.masterNext; S.masterLv++; S.masterNext=Math.floor(S.masterNext*1.13+90);
+    S.maxhp=maxHpCalc(); S.hp=S.maxhp; S.maxmp=maxMpCalc(); S.mp=S.maxmp;
+    flash('MASTER LEVEL','#d49cff','MLv.'+S.masterLv+'　全能力が上昇'); AU.level();
+  }
+}
 function gainExp(n){
+  // Lv.100から先はマスターレベル。通常レベルの強さを壊さず、育成を継続できる。
+  if(S.lv>=100){ gainMasterExp(n); updateHUD(); return; }
   S.exp+=n;
   while(S.exp>=S.expNext){
     S.exp-=S.expNext; S.lv++; S.statPts+=5;
@@ -1159,6 +1179,7 @@ function gainExp(n){
     // Areas unlock with level, but travel is always a player choice at the town gate.
     const unlocked=ZONES.find(z=>z.minLv===S.lv); if(unlocked)toast('🌀 '+unlocked.name+' が転送門に追加された');
     flash('LEVEL UP','#3fa9e0','Lv.'+S.lv+'　ステ+5'); AU.level();
+    if(S.lv>=100)toast('✦ マスターレベルが解放された');
   }
   updateHUD();
 }
@@ -1198,6 +1219,8 @@ function killReward(m){
   if(Math.random()<(m.boss?0.8:0.01)) dropJewel(m,'pot');
   // Gear is deliberately a boss reward. Normal monsters only have a near-zero lucky drop.
   if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); tryUniqueWeaponDrop(.05,false,S.zoneIdx); tryArchangelDrop(.0025,false); }
+  // 激レア。使用するとカオス合成の成功率を25%上げる。
+  if(m.boss&&Math.random()<0.012) drops.push({x:m.x+18,y:m.y-10,type:'ins',life:24,t:0});
   else if(Math.random()<0.0008) dropGear(m);
   if(m.boss) flash('BOSS KILL','#ff6bd0','大物を討伐！');
   checkAch();
@@ -1205,16 +1228,15 @@ function killReward(m){
 function dropJewel(m,type){ drops.push({x:m.x+(Math.random()*30-15),y:m.y+(Math.random()*30-15),type,life:14,t:0}); }
 function rollUniqueArmor(slot,zi,boss){
   const pool=UNIQUE_ARMOR[slot], u=pool[(Math.random()*pool.length)|0], rank=Math.min(6,Math.max(2,zi+(boss?2:1)));
-  const def=Math.round(u.def*(.9+Math.random()*.25)*(1+Math.max(0,rank-2)*.07));
-  return ensureGearItem({set:'bronze',slot,def,rar:rank,enh:0,unique:{...u}},0);
+  return ensureGearItem({set:'bronze',slot,def:u.def,rar:rank,enh:0,unique:{...u}},0);
 }
 function rollElementAccessory(slot,zi,boss){
-  const a=ELEMENT_ACCESSORIES[slot], def=Math.round((12+zi*7+(boss?12:0))*(.9+Math.random()*.25));
+  const a=ELEMENT_ACCESSORIES[slot], def={fire:24,ice:22,lightning:20,wind:18}[slot];
   return ensureGearItem({set:'bronze',slot,def,rar:Math.min(6,2+zi+(boss?1:0)),enh:0,accessory:slot},0);
 }
 function rollUniqueWeapon(zi){
-  const u=UNIQUE_WEAPONS[(Math.random()*UNIQUE_WEAPONS.length)|0], def=Math.round(u.def*(.9+Math.random()*.2)*(1+Math.max(0,zi-1)*.09));
-  return ensureGearItem({set:'bronze',slot:'weapon',wtype:'sword',def,rar:Math.min(6,3+zi),enh:0,uniqueWeapon:{...u}},0);
+  const u=UNIQUE_WEAPONS[(Math.random()*UNIQUE_WEAPONS.length)|0];
+  return ensureGearItem({set:'bronze',slot:'weapon',wtype:'sword',def:u.def,rar:Math.min(6,3+zi),enh:0,uniqueWeapon:{...u}},0);
 }
 function rollGearPiece(zi,boss,accessoryOnly){
   const maxRar=Math.min(SETS.length-1, zi + (boss?2:1));
@@ -1278,6 +1300,7 @@ function collect(d){
   else if(d.type==='js'){ S.js++; addFct(S.px,S.py-34,'霊魂','#ffd86b'); }
   else if(d.type==='jc'){ S.jc++; addFct(S.px,S.py-34,'混沌','#ff6bd0'); }
   else if(d.type==='ch'){ S.charm++; addFct(S.px,S.py-34,'護符','#9dff8a'); }
+  else if(d.type==='ins'){ S.insurance=(S.insurance||0)+1; addFct(S.px,S.py-34,'合成保険証','#c7a7ff'); toast('▣ 合成保険証を入手！ 成功率+25%'); }
   else if(d.type==='pot'){ S.pots++; addFct(S.px,S.py-34,'回復薬','#8aff9d'); }
   else if(d.type==='gear'){ pickupGear(d.gear); }
   updateHUD();
@@ -1338,6 +1361,7 @@ function grantDungeonRewards(run,b){
   S.zen+=Math.floor(2500*(zi+1)*rewardScale);
   S.jb+=Math.floor((6+zi*3)*rewardScale); S.js+=Math.floor((6+zi*3)*rewardScale);
   S.jc+=1+zi; S.charm+=1+(zi>2?1:0);
+  if(Math.random()<0.018){ S.insurance=(S.insurance||0)+1; toast('▣ 合成保険証を入手！ 成功率+25%'); }
   // 装備は一個ずつ確定。重複は自動売却され、一個の不具合で残りを失わない。
   const n=2+(Math.random()<0.55?1:0);
   for(let i=0;i<n;i++){
@@ -1508,11 +1532,11 @@ function spawnRival(){
   const z=ZONES[S.zoneIdx]; const ang=Math.random()*6.28, r=360;
   // PK invaders scale from the active hero, rather than remaining tied to the
   // early-zone table.  They should be a sudden boss-class interruption.
-  const scale=1+Math.max(0,S.lv-8)*.16;
-  const hp=Math.max(z.mhp*18*scale,Math.floor(atkCalc()*(55+S.lv*.65)));
-  const atk=Math.max(Math.floor(z.matk*(2.2+S.lv*.07)),Math.floor(defCalc()*.62+16));
+  const scale=1+Math.max(0,S.lv-8)*.22;
+  const hp=Math.max(z.mhp*30*scale,Math.floor(atkCalc()*(95+S.lv*1.05)));
+  const atk=Math.max(Math.floor(z.matk*(3.4+S.lv*.10)),Math.floor(defCalc()*.95+28));
   monsters.push({ x:S.px+Math.cos(ang)*r, y:S.py+Math.sin(ang)*r, hp, maxhp:hp,
-    atk, exp:z.exp*(14+S.lv*.2), zen:z.zen*(18+S.lv*.25), r:22, reach:120, boss:false, rival:true, actCd:40, dash:0, tele:0,
+    atk, exp:z.exp*(22+S.lv*.3), zen:z.zen*(28+S.lv*.35), r:24, reach:135, boss:false, rival:true, actCd:30, dash:0, tele:0,
     rname:RIVAL_NAMES[(Math.random()*RIVAL_NAMES.length)|0], hitCd:0, col:'#2e2440', wob:Math.random()*6.28, motion:Math.random()*6.28, attackAnim:0, kind:'rival', minion:false });
   flash('PK INVASION','#ff3b3b','乱入者が現れた！'); if(window.AU)AU.bossRoar();
 }
