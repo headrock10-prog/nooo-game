@@ -347,7 +347,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.42</div>
+  <div id="buildVer">ver.0.44</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -792,11 +792,11 @@ function aoeAttack(){
   AU.swing(step); if(critAny)AU.crit(); else if(hitAny)AU.hit();
   damageBossRanged(dmgMul);
 }
-// Auto-play is deliberately a stationary farming stance: a gentle, wide spell
+// Auto-play is deliberately a stationary farming stance: a fast, compact spell
 // keeps enemies at bay without making the hero wander off across the map.
 function autoStationaryCast(){
-  if(!spendMana(5,true)) return false;
-  const radius=265, damage=Math.max(1,Math.floor(atkCalc()*.34));
+  if(!spendMana(4,true)) return false;
+  const radius=190, damage=Math.max(1,Math.floor(atkCalc()*.60));
   let hit=false;
   for(const m of monsters){
     if(Math.hypot(m.x-S.px,m.y-S.py)<radius+m.r){
@@ -1554,7 +1554,7 @@ function update(dt){
     if(!target) for(const m of monsters){ const d=Math.hypot(m.x-S.px,m.y-S.py); if(d<nd){nd=d;target=m;} }
     if(target && Math.abs(target.x-S.px)>4) S.facing=target.x>S.px?1:-1;
     autoAtkCd-=dt;
-    if(autoAtkCd<=0){ autoStationaryCast(); autoAtkCd=attackCooldown(58); }
+    if(autoAtkCd<=0){ autoStationaryCast(); autoAtkCd=attackCooldown(28); }
   }
   // hired mercenary: follows, fights from range, and can be killed permanently for this expedition
   if(mercActive()){
@@ -1659,16 +1659,17 @@ function update(dt){
   for(let i=monsters.length-1;i>=0;i--){ if(monsters[i].hp<=0){ killReward(monsters[i]); monsters.splice(i,1); } }
   // drops magnet + collect
   for(let i=drops.length-1;i>=0;i--){ const d=drops[i]; d.life-=dt*0.016; d.t+=dt;
-    if(d.type!=='zen'){ const dx=S.px-d.x,dy=S.py-d.y,dd=Math.hypot(dx,dy)||1; if(dd<140){ d.x+=dx/dd*4*dt; d.y+=dy/dd*4*dt; } if(dd<26){ collect(d); drops.splice(i,1); continue; } }
-    else { if(Math.hypot(S.px-d.x,S.py-d.y)<30){ drops.splice(i,1); continue; } }
+    const autoLoot=S.auto&&stick.mag<0.08, magnet=autoLoot?280:140, pull=autoLoot?11:4, take=autoLoot?42:26;
+    if(d.type!=='zen'){ const dx=S.px-d.x,dy=S.py-d.y,dd=Math.hypot(dx,dy)||1; if(dd<magnet){ d.x+=dx/dd*pull*dt; } if(dd<take){ collect(d); drops.splice(i,1); continue; } }
+    else { if(Math.hypot(S.px-d.x,S.py-d.y)<(autoLoot?48:30)){ drops.splice(i,1); continue; } }
     if(d.life<=0) drops.splice(i,1);
   }
   // ---- zen-collecting pet (familiar) ----
   pet.t+=dt;
-  let pTarget=null,pnd=1e9; const PET_R=240;
+  let pTarget=null,pnd=1e9; const PET_R=S.auto&&stick.mag<0.08?380:240;
   for(const d of drops){ const dd=Math.hypot(d.x-S.px,d.y-S.py); if(dd<PET_R && dd<pnd){ pnd=dd; pTarget=d; } }
   if(pTarget){
-    const dx=pTarget.x-pet.x, dy=pTarget.y-pet.y, d=Math.hypot(dx,dy)||1, step=Math.min(d,8*dt);
+    const dx=pTarget.x-pet.x, dy=pTarget.y-pet.y, d=Math.hypot(dx,dy)||1, step=Math.min(d,(S.auto&&stick.mag<0.08?15:8)*dt);
     pet.x+=dx/d*step; pet.y+=dy/d*step;
     if(Math.hypot(pTarget.x-pet.x,pTarget.y-pet.y)<16){ const idx=drops.indexOf(pTarget);
       if(idx>=0){ if(pTarget.type!=='zen') collect(pTarget); else addFct(pet.x,pet.y-14,'+'+pTarget.amt,'#f1c878'); drops.splice(idx,1); pet.carry=4; } }
@@ -1751,9 +1752,14 @@ function drawArmorGleam(px,py,lv,t){
   ctx.restore();
 }
 function drawArchangelAura(px,py,f,t){
-  ctx.save(); ctx.globalCompositeOperation='screen'; ctx.strokeStyle='rgba(255,241,163,.72)'; ctx.shadowColor='#fff1a3'; ctx.shadowBlur=16; ctx.lineWidth=1.7;
-  ctx.beginPath(); ctx.ellipse(px,py-30,21+Math.sin(t*.004)*2,8,0,0,6.28); ctx.stroke();
-  for(let i=0;i<6;i++){ const a=t*.004+i*Math.PI/3; ctx.fillStyle=i%2?'#fff8cf':'#ffd86b'; ctx.beginPath(); ctx.arc(px+Math.cos(a)*25,py-24+Math.sin(a)*12,1.8,0,6.28); ctx.fill(); }
+  const pulse=1+Math.sin(t*.004)*.06;
+  ctx.save(); ctx.globalCompositeOperation='screen'; ctx.shadowColor='#fff1a3'; ctx.shadowBlur=20;
+  ctx.strokeStyle='rgba(255,241,163,.62)'; ctx.lineWidth=2.2;
+  ctx.beginPath(); ctx.ellipse(px,py-25,31*pulse,52*pulse,0,0,6.28); ctx.stroke();
+  ctx.strokeStyle='rgba(255,210,90,.38)'; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.ellipse(px,py-25,23*pulse,43*pulse,0,0,6.28); ctx.stroke();
+  for(let i=0;i<8;i++){ const a=t*.003+i*Math.PI/4, x=px+Math.cos(a)*31*pulse, y=py-25+Math.sin(a)*52*pulse;
+    ctx.fillStyle=i%2?'#fff8cf':'#ffd86b'; ctx.beginPath(); ctx.arc(x,y,1.8,0,6.28); ctx.fill(); }
   ctx.restore();
 }
 function drawArchangelBlade(px,py,f,t){
@@ -1961,7 +1967,7 @@ function drawDetailedHero(px,py){
   }
   ctx.restore(); ctx.shadowBlur=0;
   drawArmorGleam(px,py,visibleArmorEnh(),now);
-  if(angel)drawArchangelBlade(px,py,f,now);
+  // Archangel weapons manifest as a divine oval aura instead of a visible blade.
   if(weaponEnh>0){ ctx.fillStyle=glow||'#fff'; ctx.font='bold 10px sans-serif'; ctx.textAlign='center'; ctx.shadowColor=glow||'#fff'; ctx.shadowBlur=6; ctx.fillText('+'+weaponEnh,px,py-76); ctx.shadowBlur=0; }
 }
 
