@@ -1,4 +1,4 @@
-﻿const CACHE='nooo-mobile-v44';
+﻿const CACHE='nooo-mobile-v45';
 const FILES=[
   './',
   './index.html',
