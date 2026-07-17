@@ -1,9 +1,10 @@
-const CACHE='nooo-mobile-v1';
+﻿const CACHE='nooo-mobile-v42';
 const FILES=[
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
+  './fairy-mercs.png',
   './assets/gothic-knight-sprites.png',
   './assets/gothic-monsters-atlas.png',
   './assets/gothic-bosses-atlas.png'
@@ -30,3 +31,4 @@ self.addEventListener('fetch',event=>{
     }).catch(()=>caches.match('./index.html')))
   );
 });
+
