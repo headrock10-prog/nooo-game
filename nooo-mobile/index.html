@@ -350,7 +350,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.50</div>
+  <div id="buildVer">ver.0.51</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -715,6 +715,18 @@ const MERCS={
   archer:{name:'森弓の大妖精 リン',price:850,maxhp:270,col:'#7fe09a',icon:'🧚',desc:'風の矢を放つ大妖精'},
   healer:{name:'白光の大妖精 エルナ',price:1000,maxhp:330,col:'#ffd6f4',icon:'🧚',desc:'回復と祝福に専念する大妖精'}
 };
+function mercStats(type){
+  // 妖精は主人公の分身に近い存在。Lv・主能力・装備強化で自然に伸びる。
+  const enh=totalGearEnh(), m=S.masterLv||0;
+  if(type==='mage') return {maxhp:Math.floor(S.maxhp*.34+blessedStat('ene')*5+enh*9+m*12), power:Math.floor(atkCalc()*.46+blessedStat('ene')*.7), heal:0};
+  if(type==='archer') return {maxhp:Math.floor(S.maxhp*.42+blessedStat('agi')*6+enh*10+m*14), power:Math.floor(atkCalc()*.40+blessedStat('agi')*.8), heal:0};
+  return {maxhp:Math.floor(S.maxhp*.54+blessedStat('vit')*7+blessedStat('ene')*3+enh*12+m*16), power:0, heal:Math.floor(S.maxhp*.22+blessedStat('ene')*.5)};
+}
+function syncMercStats(){
+  if(!S.merc||!MERCS[S.merc.type])return;
+  const q=S.merc, old=Math.max(1,q.maxhp||1), ratio=Math.max(0,Math.min(1,q.hp/old)), st=mercStats(q.type);
+  q.maxhp=st.maxhp; q.hp=Math.max(1,Math.min(q.maxhp,Math.round(q.maxhp*ratio)));
+}
 function mercActive(){ return !!(S.merc&&S.merc.hp>0&&MERCS[S.merc.type]); }
 function burst(x,y,col,n,spd){ for(let i=0;i<(n||10);i++){ const a=Math.random()*6.28, v=(0.6+Math.random()*1.4)*(spd||2.2);
   parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v-0.8,life:1,col,r:1.5+Math.random()*2.5}); } }
@@ -926,9 +938,10 @@ function refreshTown(){
   warp.innerHTML=ZONES.map((z,i)=>'<div class="row" style="border-top:1px dashed #3a3024"><span><b style="color:'+(i===S.zoneIdx?'#ffd24a':'#d8c79a')+'">'+(i===S.zoneIdx?'◆ ':'')+z.name+'</b><br><small class="small">推奨 Lv.'+z.minLv+(S.lv<z.minLv?' / 未到達':'')+'</small></span><button class="gbtn" data-warp="'+i+'" '+(S.lv<z.minLv||i===S.zoneIdx?'disabled':'')+' style="padding:6px 10px;font-size:11px">'+(i===S.zoneIdx?'滞在中':'移動')+'</button></div>').join('');
   warp.querySelectorAll('[data-warp]').forEach(b=>b.onclick=()=>{ const i=+b.dataset.warp; if(i===S.zoneIdx||S.lv<ZONES[i].minLv)return; S.zoneIdx=i; monsters=[]; drops=[]; areaBossTimer=360; rivalTimer=1800; for(let n=0;n<5;n++)spawnMonster(); AU.warp(); saveGame(); updateHUD(); document.getElementById('townPanel').classList.remove('show'); toast('🌀 '+ZONES[i].name+'へ転送した'); });
   const hired=mercActive(), mi=document.getElementById('mercInfo'), ml=document.getElementById('mercHireList');
-  mi.textContent=hired?'同行中：'+MERCS[S.merc.type].name+'　HP '+Math.ceil(S.merc.hp)+' / '+S.merc.maxhp:'金貨で契約。傭兵が倒れた場合、町へ戻るまで再雇用できません。';
-  ml.innerHTML=Object.entries(MERCS).map(([id,m])=>'<div class="row" style="border-top:1px dashed #3a3024"><span><b style="color:'+m.col+'">'+m.icon+' '+m.name+'</b><br><small class="small">'+m.desc+' / HP '+m.maxhp+'</small></span><button class="gbtn" data-hire="'+id+'" '+(hired?'disabled':'')+' style="padding:6px 9px;font-size:11px">💰'+m.price+'</button></div>').join('');
-  ml.querySelectorAll('[data-hire]').forEach(b=>b.onclick=()=>{ const type=b.dataset.hire,m=MERCS[type]; if(mercActive())return; if(S.zen<m.price){toast('Zenが足りない');return;} S.zen-=m.price; S.merc={type,hp:m.maxhp,maxhp:m.maxhp,x:S.px-42,y:S.py+22,atkCd:0,healCd:0,hitCd:0,orbit:Math.random()*6.28}; saveGame(); refreshTown(); updateHUD(); toast(m.icon+' '+m.name+' を雇用した！'); });
+  if(hired)syncMercStats();
+  mi.textContent=hired?'同行中：'+MERCS[S.merc.type].name+'　HP '+Math.ceil(S.merc.hp)+' / '+S.merc.maxhp+'（主人公連動）':'金貨で契約。傭兵は主人公の能力値・装備強化に連動します。';
+  ml.innerHTML=Object.entries(MERCS).map(([id,m])=>{const st=mercStats(id);return '<div class="row" style="border-top:1px dashed #3a3024"><span><b style="color:'+m.col+'">'+m.icon+' '+m.name+'</b><br><small class="small">'+m.desc+' / 現在HP '+st.maxhp+'</small></span><button class="gbtn" data-hire="'+id+'" '+(hired?'disabled':'')+' style="padding:6px 9px;font-size:11px">💰'+m.price+'</button></div>';}).join('');
+  ml.querySelectorAll('[data-hire]').forEach(b=>b.onclick=()=>{ const type=b.dataset.hire,m=MERCS[type],st=mercStats(type); if(mercActive())return; if(S.zen<m.price){toast('Zenが足りない');return;} S.zen-=m.price; S.merc={type,hp:st.maxhp,maxhp:st.maxhp,x:S.px-42,y:S.py+22,atkCd:0,healCd:0,hitCd:0,orbit:Math.random()*6.28}; saveGame(); refreshTown(); updateHUD(); toast(m.icon+' '+m.name+' を雇用した！'); });
 }
 
 // stat spend
@@ -1630,16 +1643,17 @@ function update(dt){
   }
   // hired mercenary: follows, fights from range, and can be killed permanently for this expedition
   if(mercActive()){
-    const q=S.merc, def=MERCS[q.type]; q.orbit=(q.orbit??0)+dt*.045;
+    syncMercStats();
+    const q=S.merc, def=MERCS[q.type], stats=mercStats(q.type); q.orbit=(q.orbit??0)+dt*.045;
     const orbitR=58, fx=S.px+Math.cos(q.orbit)*orbitR, fy=S.py-12+Math.sin(q.orbit)*orbitR*.56, fd=Math.hypot(fx-q.x,fy-q.y)||1;
     if(fd>8){ q.x+=(fx-q.x)/fd*Math.min(fd,3.4*dt); q.y+=(fy-q.y)/fd*Math.min(fd,3.4*dt); }
     q.atkCd-=dt; q.healCd-=dt;
     let target=null,near=1e9; for(const m of monsters){const d=Math.hypot(m.x-q.x,m.y-q.y);if(d<near){near=d;target=m;}}
     if(q.type==='healer'&&q.healCd<=0){
-      if(S.hp<S.maxhp*.78||q.hp<q.maxhp*.55){ const heal=Math.floor(S.maxhp*.22); S.hp=Math.min(S.maxhp,S.hp+heal); q.hp=Math.min(q.maxhp,q.hp+Math.floor(q.maxhp*.16)); q.healCd=155; burst(S.px,S.py,'#9dffb0',10,1.7); AU.heal(); addFct(S.px,S.py-45,'+ '+heal,'#9dffb0'); }
+      if(S.hp<S.maxhp*.78||q.hp<q.maxhp*.55){ const heal=stats.heal; S.hp=Math.min(S.maxhp,S.hp+heal); q.hp=Math.min(q.maxhp,q.hp+Math.floor(q.maxhp*.16)); q.healCd=155; burst(S.px,S.py,'#9dffb0',10,1.7); AU.heal(); addFct(S.px,S.py-45,'+ '+heal,'#9dffb0'); }
       else { S.mercBlessUntil=Date.now()+9000; q.healCd=210; burst(S.px,S.py,'#ffd6f4',10,1.5); AU.bless(); addFct(S.px,S.py-45,'祝福：攻+16% 防+12%','#ffd6f4'); }
     }
-    if(q.type!=='healer'&&target&&q.atkCd<=0&&near<230){ const dmg=q.type==='mage'?Math.floor(atkCalc()*.48+18):Math.floor(atkCalc()*.38+14); target.hp-=dmg; q.atkCd=q.type==='archer'?30:48; enemyFx.push({x:q.x,y:q.y,tx:target.x,ty:target.y,life:1,type:q.type==='archer'?'allyArrow':'allyBolt',col:def.col}); addFct(target.x,target.y-target.r-8,dmg,def.col); }
+    if(q.type!=='healer'&&target&&q.atkCd<=0&&near<230){ const dmg=stats.power; target.hp-=dmg; q.atkCd=q.type==='archer'?30:48; enemyFx.push({x:q.x,y:q.y,tx:target.x,ty:target.y,life:1,type:q.type==='archer'?'allyArrow':'allyBolt',col:def.col}); addFct(target.x,target.y-target.r-8,dmg,def.col); }
   }
   // dungeon: clamp player to arena + run boss logic
   if(S.inDungeon && D){
