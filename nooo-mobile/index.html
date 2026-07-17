@@ -347,7 +347,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.45</div>
+  <div id="buildVer">ver.0.46</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -1535,10 +1535,22 @@ function bloodClear(){
 
 // ---------- main loop ----------
 let last=0;
+function dungeonFailSafe(err){
+  // Never let a rare boss-clear edge case stop the animation loop forever.
+  // Preserve the character and return to the field with all arena references cleared.
+  console.error('Dungeon fail-safe',err);
+  const wasDungeon=S.inDungeon||!!D;
+  S.inDungeon=false; D=null; monsters=[]; drops=[]; slashes=[]; enemyFx=[];
+  atkAnim=null; atkHeld=false; autoAtkCd=0; meleeCd=0;
+  const exit=document.getElementById('mExit'); if(exit)exit.style.display='none';
+  if(wasDungeon){ for(let i=0;i<5;i++)spawnMonster(); toast('ダンジョン処理を安全に終了しました'); saveGame(); updateHUD(); }
+}
 function loop(ts){
   if(!S.running){ requestAnimationFrame(loop); return; }
   const dt=Math.min(40,ts-last)/16.67*GAME_PACE; last=ts;
-  update(dt); render(); requestAnimationFrame(loop);
+  try{ update(dt); render(); }
+  catch(err){ dungeonFailSafe(err); }
+  requestAnimationFrame(loop);
 }
 function update(dt){
   const blessed=seraphyActive();
