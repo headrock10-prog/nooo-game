@@ -350,7 +350,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.48</div>
+  <div id="buildVer">ver.0.49</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -1218,7 +1218,11 @@ function killReward(m){
   if(Math.random()<(m.boss?0.6:0.0027)) dropJewel(m,'ch');
   if(Math.random()<(m.boss?0.8:0.01)) dropJewel(m,'pot');
   // Gear is deliberately a boss reward. Normal monsters only have a near-zero lucky drop.
-  if(m.boss){ dropGear(m); if(Math.random()<0.5) dropGear(m); tryUniqueWeaponDrop(.05,false,S.zoneIdx); tryArchangelDrop(.0025,false); }
+  if(m.boss){
+    dropGear(m); if(Math.random()<0.5) dropGear(m);
+    if(Math.random()<0.30) dropSetGear(m); // セットはボス限定・30%
+    tryUniqueWeaponDrop(.05,false,S.zoneIdx); tryArchangelDrop(.0025,false);
+  }
   // 激レア。使用するとカオス合成の成功率を25%上げる。
   if(m.boss&&Math.random()<0.012) drops.push({x:m.x+18,y:m.y-10,type:'ins',life:24,t:0});
   else if(Math.random()<0.0008) dropGear(m);
@@ -1253,7 +1257,18 @@ function rollGearPiece(zi,boss,accessoryOnly){
   if(slot.k==='weapon'){ const normal=WTYPES.filter(w=>!w.special); g.wtype=normal[(Math.random()*normal.length)|0].id; }
   return g;
 }
+function rollSetPiece(zi){
+  // セットはボス限定。進行に合わせて候補を広げるが、最初のボスでは
+  // スケイルだけが出るので、育成の入口が止まらない。
+  const maxSet=Math.min(SETS.length-2,Math.max(1,(zi|0)+1));
+  const candidates=SETS.slice(1,maxSet+1);
+  const st=candidates[(Math.random()*candidates.length)|0];
+  const slots=SLOTS.filter(s=>['helm','armor','gloves','waist','boots'].includes(s.k));
+  const slot=slots[(Math.random()*slots.length)|0];
+  return ensureGearItem({set:st.id,slot:slot.k,def:st.baseDef*slot.mul,rar:st.rar,enh:0},0);
+}
 function dropGear(m,accessoryOnly){ const g=rollGearPiece(S.zoneIdx,m.boss,accessoryOnly); drops.push({x:m.x+(Math.random()*30-15),y:m.y+(Math.random()*30-15),type:'gear',gear:g,life:18,t:0}); }
+function dropSetGear(m){ const g=rollSetPiece(S.zoneIdx); drops.push({x:m.x+(Math.random()*30-15),y:m.y+(Math.random()*30-15),type:'gear',gear:g,life:20,t:0}); }
 // The divine weapon is deliberately outside normal rarity rolls.  Field-area
 // bosses have a 0.25% chance, named dungeon bosses a 0.65% chance.
 function rollArchangelWeapon(){ return ensureGearItem({set:'archangel',slot:'weapon',wtype:'archangel',def:Math.round(170*(.95+Math.random()*.12)),rar:7,enh:0,angel:true},0); }
@@ -1365,7 +1380,7 @@ function grantDungeonRewards(run,b){
   // 装備は一個ずつ確定。重複は自動売却され、一個の不具合で残りを失わない。
   const n=2+(Math.random()<0.55?1:0);
   for(let i=0;i<n;i++){
-    try{ pickupGear(rollGearPiece(zi,true)); }
+    try{ pickupGear(Math.random()<0.30?rollSetPiece(zi):rollGearPiece(zi,true)); }
     catch(err){ console.error('Dungeon gear reward recovery',err); S.zen+=1000*(zi+1); }
   }
   try{ tryUniqueWeaponDrop(.13,true,zi); }catch(err){ console.error('Dungeon unique reward recovery',err); }
