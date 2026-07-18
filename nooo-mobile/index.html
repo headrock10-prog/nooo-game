@@ -350,7 +350,7 @@
 <!-- title -->
 <div id="title">
   <h1>Nooo<br>偶然の空地<small>SOLO HACK &amp; GAMBLE</small></h1>
-  <div id="buildVer">ver.0.51</div>
+  <div id="buildVer">ver.0.52</div>
   <p>敵を狩り、好きな武器や防具を選んで＋強化。異なるセットを組み合わせたキメラ装備で空地の頂を目指せ。<br>——全部、ひとりで。</p>
   <button class="rbtn big gbtn green" id="continueBtn" style="border-radius:12px;width:auto;height:auto;display:none">▶ つづきから</button>
   <button class="rbtn big gbtn" id="startBtn" style="border-radius:12px;width:auto;height:auto">▶ はじめから</button>
@@ -669,6 +669,13 @@ function gearStatText(g){
   return '防+'+Math.round(g.def*p);
 }
 function gearDefTotal(){ let d=0; for(const s of SLOTS){ if(s.k==='weapon'||isAccessorySlot(s.k))continue; const g=S.gear[s.k]; if(g) d+=g.def*enhanceMul(gearEnh(g)); } return d; }
+function fullArmorEnhBonus(){
+  // MU風の全身強化ボーナス。兜・鎧・籠手・腰・具足の最低強化値で判定する。
+  const levels=[];
+  for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(!g)return {level:0,pct:0}; levels.push(gearEnh(g)); }
+  const level=Math.min(...levels), pct=level>=15?42:level===14?31:level===13?22:level===12?14:level===11?8:0;
+  return {level,pct};
+}
 // aggregate set bonuses across equipped pieces (mixed sets allowed)
 function setBonus(){
   const cnt={}; for(const k of ['helm','armor','gloves','waist','boots']){ const g=S.gear[k]; if(g&&!g.unique)cnt[g.set]=(cnt[g.set]||0)+1; }
@@ -700,7 +707,7 @@ const WINGS=[
 function mercBlessActive(){ return Date.now()<(S.mercBlessUntil||0); }
 function masterScale(){ return 1+(S.masterLv||0)*.012; }
 function atkCalc(){ return Math.floor((10 + blessedStat('str')*1.6 + S.lv*2 + weaponInfo().atk + accessoryBonus().atk) * (1+setBonus().atkPct/100) * masterScale() * (mercBlessActive()?1.16:1)); }
-function defCalc(){ return Math.floor((4 + blessedStat('agi')*0.6 + S.lv*1.2 + gearDefTotal()) * (1+setBonus().defPct/100) * (1+(S.masterLv||0)*.008) * (mercBlessActive()?1.12:1)); }
+function defCalc(){ const full=fullArmorEnhBonus(); return Math.floor((4 + blessedStat('agi')*0.6 + S.lv*1.2 + gearDefTotal()) * (1+(setBonus().defPct+full.pct)/100) * (1+(S.masterLv||0)*.008) * (mercBlessActive()?1.12:1)); }
 function critCalc(){ return Math.min(0.65, 0.03 + blessedStat('ene')*0.004 + setBonus().crit + weaponInfo().crit + accessoryBonus().crit); }
 function critMul(){ return weaponInfo().critMul; }
 function cpCalc(){ let g=0; for(const s of SLOTS){ const it=S.gear[s.k]; if(it) g+=it.def*2+(it.rar+1)*40+gearEnh(it)*40; } return Math.floor(atkCalc()*2 + defCalc()*3 + S.maxhp*0.4 + g); }
@@ -746,9 +753,11 @@ function spawnMonster(opt){
   const area=areaBossForZone();
   const isBoss = !!(opt.areaBoss && !opt.minion && !S.inDungeon && area && S.lv>=area.minLv && !monsters.some(m=>m.areaBoss));
   // From Lv.30 onward, field monsters keep pace with the hero instead of becoming one-hit targets.
-  const fieldOver=Math.max(0,S.lv-Math.max(30,z.minLv+4));
-  const fieldHpMul=1+fieldOver*.19+Math.max(0,S.lv-z.minLv)*.035;
-  const fieldAtkMul=1+fieldOver*.075+Math.max(0,S.lv-z.minLv)*.018;
+  // 無限回廊は主人公Lvではなく、選択した敵Lvで強さを決める。
+  const scaleLv=opt.forceLevel!=null?Math.max(1,opt.forceLevel):S.lv;
+  const fieldOver=Math.max(0,scaleLv-Math.max(30,z.minLv+4));
+  const fieldHpMul=1+fieldOver*.19+Math.max(0,scaleLv-z.minLv)*.035;
+  const fieldAtkMul=1+fieldOver*.075+Math.max(0,scaleLv-z.minLv)*.018;
   const hp = (isBoss?area.hp*3:z.mhp)*(isBoss?1:fieldHpMul)*(0.85+Math.random()*0.4)*(opt.hpMul||1);
   const kinds=ZKINDS[S.zoneIdx]||ZKINDS[0], kind=isBoss?'boss':kinds[(Math.random()*kinds.length)|0];
   const reach=isBoss?92:({slime:30,bat:42,wolf:34,skeleton:112,imp:138,fish:72,golem:48}[kind]||34);
@@ -756,7 +765,7 @@ function spawnMonster(opt){
     x:(opt.cx??S.px)+Math.cos(ang)*r, y:(opt.cy??S.py)+Math.sin(ang)*r,
     hp:hp, maxhp:hp, atk:(isBoss?area.atk*2:z.matk)*(isBoss?1:fieldAtkMul)*(opt.atkMul||1), exp:z.exp*(isBoss?20:1)*(1+fieldOver*.08)*(opt.expMul||1), zen:z.zen*(isBoss?18:1)*(opt.zenMul||1),
     r:isBoss?46:16, reach, boss:isBoss, areaBoss:isBoss, hitCd:0, actCd:28+Math.random()*70, dash:0, tele:0, orbit:Math.random()*6.28, col:isBoss?area.col:z.mcol, acc:isBoss?area.acc:null, shape:isBoss?area.shape:null, name:isBoss?area.name:null, bossId:isBoss?area.id:null, wob:Math.random()*6.28,
-    kind, minion:!!opt.minion, corridor:!!opt.corridor, motion:Math.random()*6.28, attackAnim:0
+    kind, minion:!!opt.minion, corridor:!!opt.corridor, level:scaleLv, motion:Math.random()*6.28, attackAnim:0
   });
   if(isBoss){ flash('AREA BOSS',area.acc,area.name+' が現れた！'); if(window.AU)AU.bossRoar(); }
   if(window.AU && Math.random()<0.35) AU.cry(monsters[monsters.length-1].kind,false);
@@ -1058,7 +1067,8 @@ function refreshGear(){
     slotsEl.appendChild(row);
   }
   // set bonus
-  const sb=setBonus(); const sbEl=document.getElementById('setBonusList');
+  const sb=setBonus(), full=fullArmorEnhBonus(), sbEl=document.getElementById('setBonusList');
+  if(full.pct)sb.lines.push({col:'#ffe09a',t:'全身 +'+full.level+' ボーナス: 防御力 +'+full.pct+'%'});
   if(sb.lines.length){ sbEl.innerHTML=sb.lines.map(l=>'<div style="color:'+l.col+'">◆ '+l.t+'</div>').join(''); }
   else sbEl.innerHTML='<span style="color:#6a6258">同じセットを2部位以上で発動</span>';
   // inventory
@@ -1477,11 +1487,12 @@ function enterCorridor(targetLv,expMul){
 }
 function corridorUpdate(dt){
   D.spawnCd-=dt;
-  const cap=26, diff=D.diff||0;
+  const cap=26, targetLv=D.targetLv||30, corridorOver=Math.max(0,targetLv-30);
   if(D.spawnCd<=0&&monsters.length<cap){
     const n=Math.min(4,cap-monsters.length);
     for(let i=0;i<n;i++)spawnMonster({cx:D.cx,cy:D.cy,r:150+Math.random()*D.radius*.65,
-      hpMul:1.2+diff*.075,atkMul:1.05+diff*.035,expMul:(D.expMul||1)*(3.4+diff*.12),zenMul:2.3+diff*.08,corridor:true});
+      forceLevel:targetLv,hpMul:1.15+corridorOver*.035,atkMul:1+corridorOver*.015,
+      expMul:(D.expMul||1)*(3.4+corridorOver*.09),zenMul:2.3+corridorOver*.06,corridor:true});
     D.spawnCd=10;
   }
 }
@@ -1564,7 +1575,7 @@ function spawnRival(){
   const hp=Math.max(z.mhp*30*scale,Math.floor(atkCalc()*(95+S.lv*1.05)));
   // 乱入者は硬い強敵のままにするが、防御力を上げるほど即死級になる
   // 逆転現象を避ける。攻撃力は旧値のおよそ半分に収める。
-  const atk=Math.max(Math.floor(z.matk*(2.0+S.lv*.06)),Math.floor(defCalc()*.52+18));
+  const atk=Math.max(Math.floor(z.matk*(1.5+S.lv*.045)),Math.floor(defCalc()*.34+12));
   monsters.push({ x:S.px+Math.cos(ang)*r, y:S.py+Math.sin(ang)*r, hp, maxhp:hp,
     atk, exp:z.exp*(22+S.lv*.3), zen:z.zen*(28+S.lv*.35), r:24, reach:135, boss:false, rival:true, actCd:30, dash:0, tele:0,
     rname:RIVAL_NAMES[(Math.random()*RIVAL_NAMES.length)|0], hitCd:0, col:'#2e2440', wob:Math.random()*6.28, motion:Math.random()*6.28, attackAnim:0, kind:'rival', minion:false });
